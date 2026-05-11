@@ -49,6 +49,10 @@ TELEGRAM_PROXY = (
 
 DEFAULT_PARSE_MODE = os.getenv("DEFAULT_PARSE_MODE", "HTML")
 
+# ── Режим сандбокса ───────────────────────────────────────────────────────────
+# Если SANDBOX_MODE=true, то закрыт доступ к: банлист, список клиентов, выгрузка статистики
+SANDBOX_MODE = os.getenv("SANDBOX_MODE", "false").lower() == "true"
+
 # ── Webhook (опционально, для использования вместо polling) ───────────────────
 USE_WEBHOOK = os.getenv("USE_WEBHOOK", "false").lower() == "true"
 WEBHOOK_HOST = os.getenv("WEBHOOK_HOST", "https://yourdomain.com")

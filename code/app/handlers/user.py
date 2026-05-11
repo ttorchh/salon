@@ -8,10 +8,11 @@ from pathlib import Path
 import logging
 import re
 
+from aiogram.filters.callback_data import CallbackData
+
 from app.config import ADMIN_IDS, get_tz_sync, DATA_DIR
-from app.keyboards.booking import booking_keyboard, service_selection_keyboard
+from app.keyboards.booking import booking_keyboard, service_selection_keyboard, BookingAction
 from app.keyboards.menu import main_menu_keyboard
-from app.keyboards.services import services_list_keyboard
 from app.services.catalog_service import CatalogService
 from app.services.booking_service import BookingService
 from app.database import get_connection
@@ -23,6 +24,42 @@ logger = logging.getLogger(__name__)
 _PHOTO_FILE_ID_CACHE = {
     'pricelist': None,  # Will be set on first use
 }
+
+
+class PhoneAction(CallbackData, prefix="phone"):
+    action: str
+
+
+class ShowPrice(CallbackData, prefix="show_price"):
+    pass
+
+
+class ShowContacts(CallbackData, prefix="show_contacts"):
+    pass
+
+
+class MyApts(CallbackData, prefix="my_apts"):
+    page: int = 1
+
+
+class Feedback(CallbackData, prefix="feedback"):
+    appointment_id: int
+
+
+class CancelFeedback(CallbackData, prefix="cancel_feedback"):
+    pass
+
+
+class MenuAction(CallbackData, prefix="menu"):
+    action: str
+
+
+class Reschedule(CallbackData, prefix="reschedule"):
+    appointment_id: int
+
+
+class CancelApt(CallbackData, prefix="cancel_apt"):
+    appointment_id: int
 
 class FeedbackStates(StatesGroup):
     appointment_id = State()
@@ -103,7 +140,7 @@ async def process_user_name(message: Message, state: FSMContext) -> None:
     await state.set_state(StartDialogStates.awaiting_phone)
     
     # Show skip button for phone
-    buttons = [[InlineKeyboardButton(text="⏭️ Пропустить", callback_data="phone:skip")]]
+    buttons = [[InlineKeyboardButton(text="⏭️ Пропустить", callback_data=PhoneAction(action="skip").pack())]]
     
     text = f"Спасибо, {name}! 😊\n\nПодскажите ваш номер телефона (или пропустите):"
     await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
@@ -152,7 +189,7 @@ async def process_user_phone(message: Message, state: FSMContext) -> None:
     await message.answer(text, reply_markup=main_menu_keyboard())
 
 
-@router.callback_query(F.data == "phone:skip")
+@router.callback_query(PhoneAction.filter(F.action == "skip"), StartDialogStates.awaiting_phone)
 async def skip_phone(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Skip phone input."""
     data = await state.get_data()
@@ -171,19 +208,6 @@ async def skip_phone(callback_query: types.CallbackQuery, state: FSMContext) -> 
     await callback_query.message.edit_text(text, reply_markup=main_menu_keyboard_inline())
     await callback_query.answer()
 
-@router.callback_query(F.data == "booking:start")
-async def start_booking_callback(callback_query: types.CallbackQuery) -> None:
-    """Handle booking start from inline button."""
-    services = await CatalogService.list_services()
-    if not services:
-        await callback_query.answer("Пока нет доступных услуг. Попробуйте позже.", show_alert=True)
-        return
-    await callback_query.message.edit_text(
-        "Выберите услугу для записи:",
-        reply_markup=service_selection_keyboard(services),
-    )
-    await callback_query.answer()
-
 @router.message(F.text.in_(["🌸 Записаться", "записаться", "Записаться", "прийти", "Прийти", "забронировать", "Забронировать"]))
 async def start_booking(message: Message) -> None:
     """Handle booking start from reply button (legacy support)."""
@@ -196,7 +220,7 @@ async def start_booking(message: Message) -> None:
         reply_markup=service_selection_keyboard(services),
     )
 
-@router.callback_query(F.data == "show_price")
+@router.callback_query(ShowPrice.filter())
 async def show_price_callback(callback_query: types.CallbackQuery) -> None:
     """Handle show price from inline button."""
     services = await CatalogService.list_services()
@@ -249,7 +273,7 @@ async def show_price(message: Message) -> None:
     
     await message.answer(text, parse_mode="Markdown")
 
-@router.callback_query(F.data == "show_contacts")
+@router.callback_query(ShowContacts.filter())
 async def show_contacts_callback(callback_query: types.CallbackQuery) -> None:
     """Handle show contacts from inline button."""
     from app.services.admin_service import AdminService
@@ -278,14 +302,14 @@ async def show_contacts(message: Message) -> None:
     
     await message.answer(text)
 
-@router.callback_query(F.data == "my_apts")
+@router.callback_query(MyApts.filter(F.page == 1))
 async def my_appointments_callback(callback_query: types.CallbackQuery) -> None:
     """Handle my appointments from inline button."""
     appointments = await BookingService.list_client_appointments(callback_query.from_user.id)
     if not appointments:
         await callback_query.message.edit_text(
             "👤 У вас пока нет записей.",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")]]),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]]),
         )
         await callback_query.answer()
         return
@@ -327,17 +351,17 @@ async def my_appointments_callback(callback_query: types.CallbackQuery) -> None:
     # Upcoming appointments
     for item in upcoming:
         keyboard_buttons.append([
-            InlineKeyboardButton(text=f"Перенести", callback_data=f"reschedule:{item['id']}"),
-            InlineKeyboardButton(text="Отменить", callback_data=f"cancel_apt:{item['id']}"),
+            InlineKeyboardButton(text=f"Перенести", callback_data=Reschedule(appointment_id=item['id']).pack()),
+            InlineKeyboardButton(text="Отменить", callback_data=CancelApt(appointment_id=item['id']).pack()),
         ])
     
     # Past appointments
     for item in past:
         keyboard_buttons.append([
-            InlineKeyboardButton(text=f"Оставить отзыв", callback_data=f"feedback:{item['id']}"),
+            InlineKeyboardButton(text=f"Оставить отзыв", callback_data=Feedback(appointment_id=item['id']).pack()),
         ])
     
-    keyboard_buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")])
+    keyboard_buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())])
     
     await callback_query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard_buttons))
     await callback_query.answer()
@@ -362,7 +386,7 @@ async def book_command(message: Message) -> None:
     
     await message.answer(
         "Выберите услугу:",
-        reply_markup=services_list_keyboard(services),
+        reply_markup=service_selection_keyboard(services),
     )
 
 @router.message(Command("feedback"))
@@ -403,9 +427,9 @@ async def feedback_command(message: Message) -> None:
     # Build keyboard with past appointments' feedback buttons
     buttons = []
     for item in past:
-        buttons.append([InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data=f"feedback:{item['id']}")])
+        buttons.append([InlineKeyboardButton(text="⭐ Оставить отзыв", callback_data=Feedback(appointment_id=item['id']).pack())])
     
-    buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")])
+    buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())])
     
     await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
 
@@ -459,27 +483,27 @@ async def render_my_appointments(message_obj, user_id: int, page: int = 1, edit:
                 keyboard_buttons.append([
                     InlineKeyboardButton(
                         text=f"🌟 Оставить отзыв: {format_date_for_display(item['date'])}",
-                        callback_data=f"feedback:{item['id']}",
+                        callback_data=Feedback(appointment_id=item['id']).pack(),
                     )
                 ])
         else:
             keyboard_buttons.append([
                 InlineKeyboardButton(
                     text=f"Перенести: {format_date_for_display(item['date'])} {item['time']}",
-                    callback_data=f"reschedule:{item['id']}",
+                    callback_data=Reschedule(appointment_id=item['id']).pack(),
                 ),
-                InlineKeyboardButton(text="Отменить", callback_data=f"cancel_apt:{item['id']}"),
+                InlineKeyboardButton(text="Отменить", callback_data=CancelApt(appointment_id=item['id']).pack()),
             ])
 
     nav = []
     if page > 1:
-        nav.append(InlineKeyboardButton(text="◀", callback_data=f"my_apts:{page - 1}"))
+        nav.append(InlineKeyboardButton(text="◀", callback_data=MyApts(page=page - 1).pack()))
     if page < total_pages:
-        nav.append(InlineKeyboardButton(text="▶", callback_data=f"my_apts:{page + 1}"))
+        nav.append(InlineKeyboardButton(text="▶", callback_data=MyApts(page=page + 1).pack()))
     if nav:
         keyboard_buttons.append(nav)
 
-    keyboard_buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")])
+    keyboard_buttons.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())])
 
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
     if edit:
@@ -493,79 +517,78 @@ async def my_appointments_command(message: Message) -> None:
     await render_my_appointments(message, message.from_user.id)
 
 
-@router.callback_query(F.data.startswith("my_apts:"))
+@router.callback_query(BookingAction.filter(F.action == "list"))
+async def booking_list_callback(callback_query: types.CallbackQuery) -> None:
+    await render_my_appointments(callback_query.message, callback_query.from_user.id, edit=True)
+    await callback_query.answer()
+
+@router.callback_query(MyApts.filter())
 async def my_appointments_page_callback(callback_query: types.CallbackQuery) -> None:
-    page = int(callback_query.data.split(":")[1])
+    page = callback_query.data.page
     await render_my_appointments(callback_query.message, callback_query.from_user.id, page=page, edit=True)
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("feedback:"))
+@router.callback_query(Feedback.filter())
 async def leave_feedback(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Start feedback process with validation."""
-    try:
-        appointment_id = int(callback_query.data.split(":", 1)[1])
-        
-        # Validate appointment exists and belongs to user
-        async with get_connection() as connection:
-            async with connection.cursor() as cursor:
-                await cursor.execute(
-                    "SELECT a.id, a.status, a.appointment_date, a.appointment_time, s.duration "
-                    "FROM appointments a "
-                    "JOIN clients c ON c.id = a.client_id "
-                    "JOIN services s ON s.id = a.service_id "
-                    "WHERE a.id = ? AND c.telegram_id = ?",
-                    (appointment_id, callback_query.from_user.id)
-                )
-                row = await cursor.fetchone()
-        
-        if not row:
-            await callback_query.answer("Запись не найдена или вам не принадлежит", show_alert=True)
-            return
-        
-        apt_id, status, apt_date, apt_time, duration = row
-        
-        # Check if appointment is already completed
-        apt_datetime = datetime.fromisoformat(f"{apt_date} {apt_time}").replace(tzinfo=get_tz_sync())
-        apt_end_time = apt_datetime + timedelta(minutes=duration)
+    appointment_id = callback_query.data.appointment_id
+    
+    # Validate appointment exists and belongs to user
+    async with get_connection() as connection:
+        async with connection.cursor() as cursor:
+            await cursor.execute(
+                "SELECT a.id, a.status, a.appointment_date, a.appointment_time, s.duration "
+                "FROM appointments a "
+                "JOIN clients c ON c.id = a.client_id "
+                "JOIN services s ON s.id = a.service_id "
+                "WHERE a.id = ? AND c.telegram_id = ?",
+                (appointment_id, callback_query.from_user.id)
+            )
+            row = await cursor.fetchone()
+    
+    if not row:
+        await callback_query.answer("Запись не найдена или вам не принадлежит", show_alert=True)
+        return
+    
+    apt_id, status, apt_date, apt_time, duration = row
+    
+    # Check if appointment is already completed
+    apt_datetime = datetime.fromisoformat(f"{apt_date} {apt_time}").replace(tzinfo=get_tz_sync())
+    apt_end_time = apt_datetime + timedelta(minutes=duration)
 
-        if datetime.now(get_tz_sync()) < apt_end_time:
-            await callback_query.answer("Запись еще не завершена", show_alert=True)
-            return
-        
-        if status != 'planned':
-            await callback_query.answer("Эта запись отменена или завершена", show_alert=True)
-            return
-        
-        # Valid feedback request
-        await state.set_data({"appointment_id": appointment_id})
-        await state.set_state(FeedbackStates.feedback_content)
-        
-        await callback_query.message.edit_text(
-            f"💬 Отправьте обратную связь о вашем визите:\n\n"
-            f"Вы можете отправить:\n"
-            f"• Текстовый отзыв\n"
-            f"• Фото\n"
-            f"• Фото с описанием\n\n"
-            f"Строго одно сообщение!",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel_feedback")]
-            ]),
-        )
-        await callback_query.answer()
-    except (ValueError, IndexError):
-        await callback_query.answer("Ошибка обработки отзыва", show_alert=True)
-    except Exception as e:
-        logger.error(f"Error in leave_feedback: {e}")
-        await callback_query.answer("Ошибка при открытии формы отзыва", show_alert=True)
+    if datetime.now(get_tz_sync()) < apt_end_time:
+        await callback_query.answer("Запись еще не завершена", show_alert=True)
+        return
+    
+    if status != 'planned':
+        await callback_query.answer("Эта запись отменена или завершена", show_alert=True)
+        return
+    
+    # Valid feedback request
+    await state.set_data({"appointment_id": appointment_id})
+    await state.set_state(FeedbackStates.feedback_content)
+    
+    await callback_query.message.edit_text(
+        f"💬 Отправьте обратную связь о вашем визите:\n\n"
+        f"Вы можете отправить:\n"
+        f"• Текстовый отзыв\n"
+        f"• Фото\n"
+        f"• Фото с описанием\n\n"
+        f"Строго одно сообщение!",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Отмена", callback_data=CancelFeedback().pack())]
+        ]),
+    )
+    await callback_query.answer()
 
-@router.callback_query(F.data == "cancel_feedback")
+@router.callback_query(CancelFeedback.filter(), FeedbackStates.feedback_content)
 async def cancel_feedback(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Cancel feedback."""
     await state.clear()
     await callback_query.message.edit_text(
         "❌ Отзыв отменен",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")]
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]
         ]),
     )
     await callback_query.answer()
@@ -658,7 +681,7 @@ async def handle_feedback_content(message: Message, state: FSMContext) -> None:
         reply_markup=main_menu_keyboard(),
     )
 
-@router.callback_query(F.data.startswith("menu:main"))
+@router.callback_query(MenuAction.filter(F.action == "main"))
 async def return_to_main(callback_query: types.CallbackQuery) -> None:
     await callback_query.message.delete()
     await callback_query.answer()

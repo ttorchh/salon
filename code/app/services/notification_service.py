@@ -1,5 +1,6 @@
 from aiogram import Bot
 from app.database import get_connection
+from ..bot import create_bot
 from datetime import datetime
 import logging
 
@@ -300,7 +301,6 @@ class NotificationService:
         """Notify admin about new appointment. Prevents duplicate notifications."""
         from ..config import ADMIN_BOT_TOKEN, ADMIN_IDS
         from ..bot import create_bot
-        from ..database import get_connection
         
         # Check if notification already sent
         async with get_connection() as connection:

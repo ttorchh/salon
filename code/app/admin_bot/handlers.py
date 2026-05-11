@@ -9,6 +9,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import Command
+from aiogram.filters.callback_data import CallbackData
 from aiogram.exceptions import TelegramBadRequest, TelegramAPIError
 import logging
 
@@ -30,7 +31,7 @@ from app.admin_bot.management_keyboards import (
     client_list_keyboard,
     client_detail_keyboard,
 )
-from app.admin_bot.menu_keyboard import admin_schedule_menu_keyboard
+from app.admin_bot.menu_keyboard import admin_schedule_menu_keyboard, AdminBlockTime, AdminUnblockTime, ScheduleOpenDay, AdminMenu as AdminMenuCB
 from app.keyboards.calendar import calendar_keyboard, time_selection_keyboard, get_calendar_with_blocked_dates
 from app.services.admin_service import AdminService
 from app.services.booking_service import BookingService
@@ -98,10 +99,240 @@ class ReloadStates(StatesGroup):
     """States for bot reload confirmation."""
     confirm_reload = State()
 
+# ============ CallbackData Classes ============
+
+# Menu & Navigation
+class AdminMenu(CallbackData, prefix="admin_menu"):
+    pass
+
+class AdminContactsMenu(CallbackData, prefix="admin_contacts"):
+    pass
+
+class AdminServices(CallbackData, prefix="admin_services"):
+    pass
+
+class AdminScheduleMenu(CallbackData, prefix="admin_schedule_menu"):
+    pass
+
+class MenuMain(CallbackData, prefix="menu_main"):
+    pass
+
+class ManualBookNote(CallbackData, prefix="manualbook_note_none"):
+    pass
+
+# Appointments & Views
+class ViewAppointments(CallbackData, prefix="view"):
+    view_type: str  # today, week, upcoming
+
+class AppointmentDetail(CallbackData, prefix="apt_detail"):
+    appointment_id: int
+
+class AppointmentNav(CallbackData, prefix="apt_nav"):
+    view_type: str  # today, week, upcoming
+    direction: str  # prev, next
+
+class AdminCancel(CallbackData, prefix="admin_cancel"):
+    appointment_id: int
+
+class AdminReschedule(CallbackData, prefix="admin_reschedule"):
+    appointment_id: int
+
+class NoShow(CallbackData, prefix="no_show"):
+    appointment_id: int
+
+# Blocking & Scheduling
+class BlockDay(CallbackData, prefix="block_day"):
+    pass
+
+class BlockTime(CallbackData, prefix="block_time"):
+    pass
+
+class BlockView(CallbackData, prefix="block_view"):
+    pass
+
+class BlockingMenu(CallbackData, prefix="blocking_menu"):
+    pass
+
+class UnblockDay(CallbackData, prefix="unblock_day"):
+    date: str
+
+class Unblock(CallbackData, prefix="unblock"):
+    date: str
+    time: str
+
+# Services
+class ServiceCreate(CallbackData, prefix="service_create"):
+    pass
+
+class ServiceList(CallbackData, prefix="service_list"):
+    pass
+
+class ServiceEdit(CallbackData, prefix="service_edit"):
+    service_id: int
+
+class ServiceEditField(CallbackData, prefix="service_edit_field"):
+    service_id: int
+    field: str
+
+class ServiceDelete(CallbackData, prefix="service_delete"):
+    service_id: int
+
+class ServiceConfirmDelete(CallbackData, prefix="service_confirm_delete"):
+    service_id: int
+
+# Clients
+class ClientsMenu(CallbackData, prefix="clients_menu"):
+    pass
+
+class ClientsList(CallbackData, prefix="clients_list"):
+    page: int
+
+class ClientsBans(CallbackData, prefix="clients_bans"):
+    page: int
+
+class ClientsView(CallbackData, prefix="clients_view"):
+    telegram_id: int
+    page: int
+
+class ClientsBanView(CallbackData, prefix="clients_banview"):
+    telegram_id: int
+    page: int
+
+class ClientsHistory(CallbackData, prefix="clients_history"):
+    telegram_id: int
+    source: str
+    page: int
+
+class ClientsBan(CallbackData, prefix="clients_ban"):
+    telegram_id: int
+    source: str
+    page: int
+
+class ClientsUnban(CallbackData, prefix="clients_unban"):
+    telegram_id: int
+    source: str
+    page: int
+
+class ClientsMessage(CallbackData, prefix="clients_message"):
+    telegram_id: int
+    source: str
+    page: int
+
+class ClientsBook(CallbackData, prefix="clients_book"):
+    telegram_id: int
+    source: str
+    page: int
+
+# Calendar & Time (from manual booking)
+class CalendarAction(CallbackData, prefix="calendar"):
+    pass
+
+class CalendarDate(CallbackData, prefix="calendar_date"):
+    pass
+
+class TimeSelect(CallbackData, prefix="time"):
+    pass
+
+class ManualBookService(CallbackData, prefix="manualbook_service"):
+    service_id: int
+
+# Setup Wizard
+class SetupScheduleType(CallbackData, prefix="setup_schedule_type"):
+    schedule_type: str
+
+class SetupInterval(CallbackData, prefix="setup_interval"):
+    interval: int
+
+class ScheduleCyclePattern(CallbackData, prefix="cycle_pattern"):
+    pattern: str  # 5/2, 2/2, 4/3, 3/3, custom
+
+class SetupWeekday(CallbackData, prefix="setup_weekday"):
+    weekday: int
+
+class SetupBackToInterval(CallbackData, prefix="setup_back_to_interval"):
+    pass
+
+class SetupSkipScheduleType(CallbackData, prefix="setup_skip_schedule_type"):
+    pass
+
+class SetupSkipBreaks(CallbackData, prefix="setup_skip_breaks"):
+    pass
+
+class SetupSkipContacts(CallbackData, prefix="setup_skip_contacts"):
+    pass
+
+class SetupSkipHours(CallbackData, prefix="setup_skip_hours"):
+    pass
+
+class SetupSkipInterval(CallbackData, prefix="setup_skip_interval"):
+    pass
+
+class SetupSkipNotification(CallbackData, prefix="setup_skip_notification"):
+    pass
+
+class SetupSkipTimezone(CallbackData, prefix="setup_skip_timezone"):
+    pass
+
+class SetupWeekdaysConfirm(CallbackData, prefix="setup_weekdays_confirm"):
+    pass
+
+# Feedbacks
+class ViewFeedback(CallbackData, prefix="view_feedback"):
+    feedback_id: int
+
+class FeedbacksPage(CallbackData, prefix="feedbacks_page"):
+    page: int
+
+class ReplyFeedback(CallbackData, prefix="reply_feedback"):
+    feedback_id: int
+
+class BackToFeedbacks(CallbackData, prefix="back_to_feedbacks"):
+    pass
+
+class CancelReply(CallbackData, prefix="cancel_reply"):
+    pass
+
+# Pricelist & Broadcast & Notifications
+class PricelistUpload(CallbackData, prefix="pricelist_upload"):
+    pass
+
+class PricelistCancel(CallbackData, prefix="pricelist_cancel"):
+    pass
+
+class BroadcastCancel(CallbackData, prefix="broadcast_cancel"):
+    pass
+
+class NotificationCancel(CallbackData, prefix="notification_cancel"):
+    pass
+
+# Timezone & Reload & Contacts
+class TimezoneCancel(CallbackData, prefix="timezone_cancel"):
+    pass
+
+class ReloadConfirm(CallbackData, prefix="reload_confirm"):
+    pass
+
+class ReloadCancel(CallbackData, prefix="reload_cancel"):
+    pass
+
+class ContactEditAll(CallbackData, prefix="contact_edit_all"):
+    pass
+
 
 class AdminClientStates(StatesGroup):
     ban_reason = State()
     message_text = State()
+
+
+class AdminClientsViewStates(StatesGroup):
+    """States for clients/bans list navigation and viewing."""
+    viewing_list = State()  # In clients/bans list: stores view_type (clients/bans), current_page
+    viewing_detail = State()  # In client detail card: stores telegram_id, source, page
+
+
+class AdminAppointmentsViewStates(StatesGroup):
+    """States for appointments viewing with pagination."""
+    viewing_appointments = State()  # Stores view_type (today/week/upcoming), current_page
 
 
 class AdminManualBookingStates(StatesGroup):
@@ -126,6 +357,17 @@ class SetupWizardStates(StatesGroup):
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
+
+
+def is_sandbox_restricted(feature_name: str = "Эта функция") -> str:
+    """Return error message if in sandbox mode. Used for restricted features."""
+    from app.config import SANDBOX_MODE
+    if SANDBOX_MODE:
+        return (
+            f"🔒 {feature_name} недоступна в режиме сандбокса.\n\n"
+            f"⚠️ Это ограничение введено для безопасности тестирования."
+        )
+    return None
 
 
 def format_client_name(item: dict) -> str:
@@ -159,6 +401,101 @@ async def render_clients_page(message_obj, page: int = 1) -> None:
             has_next=current_page < total_pages,
             banned=False,
         ),
+    )
+
+
+async def render_appointments_page(message_obj, view_type: str, page: int = 1) -> None:
+    """Render paginated appointments list for the given view type."""
+    now = datetime.now(get_tz_sync())
+    
+    if view_type == "week":
+        start = now.date().isoformat()
+        appointments = await AdminService.list_appointments_for_week(start)
+    elif view_type == "upcoming":
+        today = now.date().isoformat()
+        appointments = await AdminService.list_upcoming_appointments(today)
+    else:
+        # Default to week
+        start = now.date().isoformat()
+        appointments = await AdminService.list_appointments_for_week(start)
+        view_type = "week"
+
+    total_pages = (len(appointments) + PER_PAGE - 1) // PER_PAGE
+    page = max(1, min(page, total_pages))
+    page_items = appointments[(page - 1) * PER_PAGE : page * PER_PAGE]
+
+    by_date: dict[str, list] = {}
+    for item in page_items:
+        by_date.setdefault(item["date"], []).append(item)
+
+    if not appointments:
+        if view_type == "week":
+            text = "📅 Записей на неделю не найдено."
+        else:
+            text = "📅 Предстоящих записей не найдено."
+
+        await message_obj.edit_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text="◀ Назад", callback_data="admin_menu")]]
+            ),
+        )
+        return
+
+    if view_type == "week":
+        text = f"📅 Записи на неделю (стр. {page}/{total_pages}):\n\n"
+    else:
+        text = f"📅 Предстоящие записи (стр. {page}/{total_pages}):\n\n"
+    
+    buttons = []
+
+    for date_str in sorted(by_date.keys()):
+        text += f"📆 {date_str}\n"
+        for item in by_date[date_str]:
+            client_info = item.get("client_name", "Unknown")
+            if item.get("phone"):
+                client_info += f" ({item['phone']})"
+
+            status = item.get("status", "planned")
+            if status == "planned" and is_appointment_passed(item["date"], item["time"]):
+                status = "is_passed"
+            emoji = STATUS_EMOJI.get(status, "📅")
+
+            text += f"  {emoji} {item['time']} — {item['service_name']}\n  👤 {client_info}\n"
+
+            apt_datetime = datetime.strptime(
+                f"{date_str} {item['time']}", "%Y-%m-%d %H:%M"
+            ).replace(tzinfo=get_tz_sync())
+
+            row = [
+                InlineKeyboardButton(
+                    text=f"{emoji} {date_str} {item['time']}",
+                    callback_data=f"apt_detail:{item['id']}",
+                )
+            ]
+
+            if status == "planned" and now < apt_datetime:
+                row.append(
+                    InlineKeyboardButton(
+                        text="📅 Перенести",
+                        callback_data=f"admin_reschedule:{item['id']}",
+                    )
+                )
+
+            buttons.append(row)
+
+    nav = []
+    if page > 1:
+        nav.append(InlineKeyboardButton(text="◀", callback_data=f"apt_nav:{view_type}:prev"))
+    if page < total_pages:
+        nav.append(InlineKeyboardButton(text="▶", callback_data=f"apt_nav:{view_type}:next"))
+    if nav:
+        buttons.append(nav)
+
+    buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin_menu")])
+
+    await message_obj.edit_text(
+        text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
     )
 
 
@@ -376,7 +713,7 @@ async def admin_appointments_menu(message: types.Message) -> None:
         reply_markup=appointments_view_keyboard(),
     )
 
-@router.callback_query(F.data == "view:today")
+@router.callback_query(ViewAppointments.filter(F.view_type == "today"))
 async def admin_today_callback(callback_query: types.CallbackQuery) -> None:
     """Show appointments for today."""
     if not is_admin(callback_query.from_user.id):
@@ -413,7 +750,7 @@ async def admin_today_callback(callback_query: types.CallbackQuery) -> None:
         
         if now > apt_datetime:
             buttons = [[InlineKeyboardButton(text="👻 Клиент не пришел", callback_data=f"no_show:{apt['id']}")]]
-            buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin:menu")])
+            buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin_menu")])
             await callback_query.message.edit_text(
                 text,
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
@@ -462,7 +799,7 @@ async def admin_today_callback(callback_query: types.CallbackQuery) -> None:
                         callback_data=f"admin_reschedule:{item['id']}"
                     )
                 ])
-        buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin:menu")])
+        buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin_menu")])
         await callback_query.message.edit_text(
             text,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
@@ -470,145 +807,37 @@ async def admin_today_callback(callback_query: types.CallbackQuery) -> None:
     
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("view:week"))
-async def admin_week_callback(callback_query: types.CallbackQuery) -> None:
-    """Show appointments for the week."""
+@router.callback_query(ViewAppointments.filter(F.view_type == "week"))
+async def admin_week_callback(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+    """Show appointments for the week with FSM state tracking."""
     if not is_admin(callback_query.from_user.id):
         await callback_query.answer("У вас нет доступа", show_alert=True)
         return
 
     parts = callback_query.data.split(":")
     page = int(parts[2]) if len(parts) > 2 else 1
-
-    now = datetime.now(get_tz_sync())
-    start = now.date().isoformat()
-    appointments = await AdminService.list_appointments_for_week(start)
-
-    total_pages = (len(appointments) + PER_PAGE - 1) // PER_PAGE
-    page = max(1, min(page, total_pages))
-    page_items = appointments[(page - 1) * PER_PAGE : page * PER_PAGE]
-
-    by_date: dict[str, list] = {}
-    for item in page_items:
-        by_date.setdefault(item["date"], []).append(item)
-
-    text = f"📅 Записи на неделю (стр. {page}/{total_pages}):\n\n"
-    buttons = []
-
-    for date_str in sorted(by_date.keys()):
-        text += f"📆 {date_str}\n"
-        for item in by_date[date_str]:
-            client_info = item.get("client_name", "Unknown")
-            if item.get("phone"):
-                client_info += f" ({item['phone']})"
-
-            status = item.get("status", "planned")
-            if status == "planned" and is_appointment_passed(item["date"], item["time"]):
-                status = "is_passed"
-            emoji = STATUS_EMOJI.get(status, "📅")
-
-            text += f"  {emoji} {item['time']} — {item['service_name']}\n  👤 {client_info}\n"
-
-            apt_datetime = datetime.strptime(
-                f"{date_str} {item['time']}", "%Y-%m-%d %H:%M"
-            ).replace(tzinfo=get_tz_sync())
-
-            row = [
-                InlineKeyboardButton(
-                    text=f"{emoji} {date_str} {item['time']}",
-                    callback_data=f"apt_detail:{item['id']}",
-                )
-            ]
-
-            if status == "planned" and now < apt_datetime:
-                row.append(
-                    InlineKeyboardButton(
-                        text="📅 Перенести",
-                        callback_data=f"admin_reschedule:{item['id']}",
-                    )
-                )
-
-            buttons.append(row)
-
-    nav = []
-    if page > 1:
-        nav.append(InlineKeyboardButton(text="◀", callback_data=f"view:week:{page - 1}"))
-    if page < total_pages:
-        nav.append(InlineKeyboardButton(text="▶", callback_data=f"view:week:{page + 1}"))
-    if nav:
-        buttons.append(nav)
-
-    buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin:menu")])
-
-    await callback_query.message.edit_text(
-        text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
-    )
+    
+    await state.set_state(AdminAppointmentsViewStates.viewing_appointments)
+    await state.update_data(view_type="week", current_page=page)
+    await render_appointments_page(callback_query.message, "week", page)
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("view:upcoming"))
-async def admin_upcoming_callback(callback_query: types.CallbackQuery) -> None:
-    """Show all upcoming appointments."""
+@router.callback_query(ViewAppointments.filter(F.view_type == "upcoming"))
+async def admin_upcoming_callback(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+    """Show all upcoming appointments with FSM state tracking."""
     if not is_admin(callback_query.from_user.id):
         await callback_query.answer("У вас нет доступа", show_alert=True)
         return
 
     parts = callback_query.data.split(":")
     page = int(parts[2]) if len(parts) > 2 else 1
-
-    today = datetime.now(get_tz_sync()).date().isoformat()
-    appointments = await AdminService.list_upcoming_appointments(today)
-
-    if not appointments:
-        await callback_query.message.edit_text("📆 Предстоящих записей не найдено.")
-        await callback_query.answer()
-        return
-
-    total_pages = max((len(appointments) + PER_PAGE - 1) // PER_PAGE, 1)
-    page = max(1, min(page, total_pages))
-    page_items = appointments[(page - 1) * PER_PAGE : page * PER_PAGE]
-
-    by_date: dict[str, list] = {}
-    for item in page_items:
-        by_date.setdefault(item["date"], []).append(item)
-
-    text = f"📅 Предстоящие записи (стр. {page}/{total_pages}):\n\n"
-    buttons = []
-
-    for date_str in sorted(by_date.keys()):
-        text += f"📆 {date_str}\n"
-        for item in by_date[date_str]:
-            client_info = item.get("client_name", "Unknown")
-            if item.get("phone"):
-                client_info += f" ({item['phone']})"
-            text += f"  📅 {item['time']} — {item['service_name']}\n  👤 {client_info}\n"
-
-            buttons.append([
-                InlineKeyboardButton(
-                    text=f"📅 {date_str} {item['time']}",
-                    callback_data=f"apt_detail:{item['id']}",
-                ),
-                InlineKeyboardButton(
-                    text="📅 Перенести",
-                    callback_data=f"admin_reschedule:{item['id']}",
-                ),
-            ])
-
-    nav = []
-    if page > 1:
-        nav.append(InlineKeyboardButton(text="◀", callback_data=f"view:upcoming:{page - 1}"))
-    if page < total_pages:
-        nav.append(InlineKeyboardButton(text="▶", callback_data=f"view:upcoming:{page + 1}"))
-    if nav:
-        buttons.append(nav)
-
-    buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin:menu")])
-
-    await callback_query.message.edit_text(
-        text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
-    )
+    
+    await state.set_state(AdminAppointmentsViewStates.viewing_appointments)
+    await state.update_data(view_type="upcoming", current_page=page)
+    await render_appointments_page(callback_query.message, "upcoming", page)
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("apt_detail:"))
+@router.callback_query(AppointmentDetail.filter())
 async def show_appointment_detail(callback_query: types.CallbackQuery) -> None:
     """Show appointment details with management buttons."""
     if not is_admin(callback_query.from_user.id):
@@ -639,7 +868,7 @@ async def show_appointment_detail(callback_query: types.CallbackQuery) -> None:
     )
     await callback_query.answer()
 
-@router.callback_query(F.data == "admin:schedule_menu")
+@router.callback_query(AdminScheduleMenu.filter())
 async def admin_schedule_menu_callback(callback_query: types.CallbackQuery) -> None:
     """Show schedule management menu."""
     if not is_admin(callback_query.from_user.id):
@@ -652,7 +881,7 @@ async def admin_schedule_menu_callback(callback_query: types.CallbackQuery) -> N
     )
     await callback_query.answer()
 
-@router.callback_query(F.data == "admin:block_time")
+@router.callback_query(AdminBlockTime.filter())
 async def admin_block_time_callback(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Handle block time from callback."""
     if not is_admin(callback_query.from_user.id):
@@ -665,7 +894,7 @@ async def admin_block_time_callback(callback_query: types.CallbackQuery, state: 
     )
     await callback_query.answer()
 
-@router.callback_query(F.data == "admin:unblock_time")
+@router.callback_query(AdminUnblockTime.filter())
 async def admin_unblock_time_callback(callback_query: types.CallbackQuery) -> None:
     """Handle unblock time from callback."""
     if not is_admin(callback_query.from_user.id):
@@ -695,7 +924,7 @@ async def admin_unblock_time_callback(callback_query: types.CallbackQuery) -> No
             callback_data=f"unblock:{item['date']}:{item['time']}"
         )])
     
-    buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin:schedule_menu")])
+    buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin_schedule_menu")])
     
     await callback_query.message.edit_text(
         text,
@@ -703,7 +932,7 @@ async def admin_unblock_time_callback(callback_query: types.CallbackQuery) -> No
     )
     await callback_query.answer()
 
-@router.callback_query(F.data == "admin:services")
+@router.callback_query(AdminServices.filter())
 async def admin_services_callback(callback_query: types.CallbackQuery) -> None:
     """Show services management from callback."""
     if not is_admin(callback_query.from_user.id):
@@ -747,7 +976,7 @@ async def admin_block_time_text(message: types.Message, state: FSMContext) -> No
     )
 
 
-@router.callback_query(F.data == "block:day")
+@router.callback_query(BlockDay.filter())
 async def block_entire_day(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Start blocking entire day."""
     if not is_admin(callback_query.from_user.id):
@@ -765,7 +994,7 @@ async def block_entire_day(callback_query: types.CallbackQuery, state: FSMContex
     await callback_query.answer()
 
 
-@router.callback_query(F.data == "block:time")
+@router.callback_query(BlockTime.filter())
 async def block_time_slot(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Start blocking specific time."""
     if not is_admin(callback_query.from_user.id):
@@ -783,7 +1012,7 @@ async def block_time_slot(callback_query: types.CallbackQuery, state: FSMContext
     await callback_query.answer()
 
 
-@router.callback_query(F.data == "blocking:menu")
+@router.callback_query(BlockingMenu.filter())
 async def back_to_blocking_menu(callback_query: types.CallbackQuery) -> None:
     """Return to blocking menu."""
     if not is_admin(callback_query.from_user.id):
@@ -797,7 +1026,7 @@ async def back_to_blocking_menu(callback_query: types.CallbackQuery) -> None:
     await callback_query.answer()
 
 
-@router.callback_query(F.data == "block:view")
+@router.callback_query(BlockView.filter())
 async def view_blocked_slots(callback_query: types.CallbackQuery) -> None:
     """View all blocked slots for today and upcoming."""
     if not is_admin(callback_query.from_user.id):
@@ -857,7 +1086,7 @@ async def view_blocked_slots(callback_query: types.CallbackQuery) -> None:
     await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("calendar:"), AdminBlockingStates.block_date)
+@router.callback_query(CalendarAction.filter(), AdminBlockingStates.block_date)
 async def admin_calendar_month_change(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Handle calendar month navigation for blocking dates."""
     if not is_admin(callback_query.from_user.id):
@@ -880,7 +1109,7 @@ async def admin_calendar_month_change(callback_query: types.CallbackQuery, state
     )
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("calendar_date:"), AdminBlockingStates.block_date)
+@router.callback_query(CalendarDate.filter(), AdminBlockingStates.block_date)
 async def admin_select_block_date(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     block_date = callback_query.data.split(":", 1)[1]
     data = await state.get_data()
@@ -913,7 +1142,7 @@ async def admin_select_block_date(callback_query: types.CallbackQuery, state: FS
     
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("time:"), AdminBlockingStates.block_time)
+@router.callback_query(TimeSelect.filter(), AdminBlockingStates.block_time)
 async def admin_select_block_time(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     block_time = callback_query.data.split(":", 1)[1]
     data = await state.get_data()
@@ -927,7 +1156,7 @@ async def admin_select_block_time(callback_query: types.CallbackQuery, state: FS
     )
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("admin_cancel:"))
+@router.callback_query(AdminCancel.filter())
 async def admin_cancel_appointment(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Start cancelling an appointment - request reason from admin."""
     if not is_admin(callback_query.from_user.id):
@@ -980,7 +1209,7 @@ async def handle_cancel_reason(message: types.Message, state: FSMContext) -> Non
 
 # ==================== APPOINTMENT MANAGEMENT ====================
 
-@router.callback_query(F.data.startswith("admin_cancel:"))
+@router.callback_query(AdminCancel.filter())
 async def admin_cancel_appointment(callback_query: types.CallbackQuery, bot: Bot) -> None:
     """Cancel appointment by admin."""
     if not is_admin(callback_query.from_user.id):
@@ -1037,7 +1266,7 @@ async def admin_cancel_appointment(callback_query: types.CallbackQuery, bot: Bot
         logger.error(f"Failed to edit message: {e}")
         await callback_query.message.answer("✅ Запись успешно отменена!")
 
-@router.callback_query(F.data.startswith("no_show:"))
+@router.callback_query(NoShow.filter())
 async def mark_appointment_no_show(callback_query: types.CallbackQuery, bot: Bot) -> None:
     """Mark appointment as no-show (client didn't come)."""
     if not is_admin(callback_query.from_user.id):
@@ -1075,7 +1304,7 @@ async def mark_appointment_no_show(callback_query: types.CallbackQuery, bot: Bot
         logger.error(f"Failed to edit message: {e}")
         await callback_query.message.answer("✅ Запись отмечена как неявка!")
 
-@router.callback_query(F.data.startswith("admin_reschedule:"))
+@router.callback_query(AdminReschedule.filter())
 async def admin_reschedule_appointment(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Start rescheduling an appointment."""
     if not is_admin(callback_query.from_user.id):
@@ -1116,7 +1345,7 @@ async def admin_reschedule_appointment(callback_query: types.CallbackQuery, stat
     except Exception as e:
         logger.error(f"Failed to answer callback query: {e}")
 
-@router.callback_query(F.data.startswith("calendar:"), AdminRescheduleStates.reschedule_date)
+@router.callback_query(CalendarAction.filter(), AdminRescheduleStates.reschedule_date)
 async def admin_reschedule_calendar_month_change(callback_query: types.CallbackQuery) -> None:
     """Navigate calendar while selecting reschedule date."""
     year_month = callback_query.data.split(":", 1)[1]
@@ -1127,7 +1356,7 @@ async def admin_reschedule_calendar_month_change(callback_query: types.CallbackQ
     await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("calendar_date:"), AdminRescheduleStates.reschedule_date)
+@router.callback_query(CalendarDate.filter(), AdminRescheduleStates.reschedule_date)
 async def admin_select_reschedule_date(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Select new date for appointment."""
     new_date = callback_query.data.split(":", 1)[1]
@@ -1177,7 +1406,7 @@ async def admin_select_reschedule_date(callback_query: types.CallbackQuery, stat
     except Exception as e:
         logger.error(f"Failed to answer callback query: {e}")
 
-@router.callback_query(F.data.startswith("time:"), AdminRescheduleStates.reschedule_time)
+@router.callback_query(TimeSelect.filter(), AdminRescheduleStates.reschedule_time)
 async def admin_confirm_reschedule(callback_query: types.CallbackQuery, state: FSMContext, bot: Bot) -> None:
     """Confirm rescheduling."""
     new_time = callback_query.data.split(":", 1)[1]
@@ -1281,7 +1510,7 @@ async def admin_services_list_text(message: types.Message) -> None:
         logger.error(f"Error showing pricelist: {e}")
         await message.answer(f"❌ Ошибка: {str(e)}")
 
-@router.callback_query(F.data == "pricelist:upload")
+@router.callback_query(PricelistUpload.filter())
 async def upload_pricelist(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Request new pricelist image from admin."""
     if not is_admin(callback_query.from_user.id):
@@ -1291,7 +1520,7 @@ async def upload_pricelist(callback_query: types.CallbackQuery, state: FSMContex
     await state.set_state(AdminBlockingStates.upload_pricelist)
     await callback_query.message.delete()
     cancel_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="❌ Отменить", callback_data="pricelist:cancel")]
+        [InlineKeyboardButton(text="❌ Отменить", callback_data="pricelist_cancel")]
     ])
     await callback_query.message.answer(
         "📸 Отправьте новую картинку прайса:",
@@ -1299,7 +1528,7 @@ async def upload_pricelist(callback_query: types.CallbackQuery, state: FSMContex
     )
     await callback_query.answer()
 
-@router.callback_query(F.data == "pricelist:cancel")
+@router.callback_query(PricelistCancel.filter())
 async def cancel_pricelist_upload(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Cancel pricelist upload."""
     await state.clear()
@@ -1349,7 +1578,7 @@ async def admin_broadcast_start(message: types.Message, state: FSMContext) -> No
     
     await state.set_state(BroadcastStates.broadcast_text)
     cancel_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="❌ Отменить", callback_data="broadcast:cancel")]
+        [InlineKeyboardButton(text="❌ Отменить", callback_data="broadcast_cancel")]
     ])
     await message.answer(
         "📢 Введите текст, фото или фото с подписью\n\n"
@@ -1360,7 +1589,7 @@ async def admin_broadcast_start(message: types.Message, state: FSMContext) -> No
         reply_markup=cancel_keyboard
     )
 
-@router.callback_query(F.data == "broadcast:cancel")
+@router.callback_query(BroadcastCancel.filter())
 async def cancel_broadcast(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Cancel broadcast."""
     await state.clear()
@@ -1589,7 +1818,7 @@ async def render_feedback_page(message_obj, page: int = 1, edit: bool = False) -
     if nav:
         keyboard.append(nav)
 
-    keyboard.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")])
+    keyboard.append([InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu_main")])
 
     markup = InlineKeyboardMarkup(inline_keyboard=keyboard)
     if edit:
@@ -1606,7 +1835,7 @@ async def admin_feedback_menu(message: types.Message) -> None:
     await render_feedback_page(message)
 
 
-@router.callback_query(F.data.startswith("feedbacks_page:"))
+@router.callback_query(FeedbacksPage.filter())
 async def admin_feedback_page_callback(callback_query: types.CallbackQuery) -> None:
     if not is_admin(callback_query.from_user.id):
         await callback_query.answer("У вас нет доступа", show_alert=True)
@@ -1615,7 +1844,7 @@ async def admin_feedback_page_callback(callback_query: types.CallbackQuery) -> N
     await render_feedback_page(callback_query.message, page=page, edit=True)
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("view_feedback:"))
+@router.callback_query(ViewFeedback.filter())
 async def view_feedback_detail(callback_query: types.CallbackQuery) -> None:
     """View full feedback details."""
     if not is_admin(callback_query.from_user.id):
@@ -1712,7 +1941,7 @@ async def view_feedback_detail(callback_query: types.CallbackQuery) -> None:
 
     await callback_query.answer()
 
-@router.callback_query(F.data == "back_to_feedbacks")
+@router.callback_query(BackToFeedbacks.filter())
 async def back_to_feedbacks(callback_query: types.CallbackQuery) -> None:
     """Go back to feedbacks list."""
     try:
@@ -1721,7 +1950,7 @@ async def back_to_feedbacks(callback_query: types.CallbackQuery) -> None:
         pass
     await render_feedback_page(callback_query.message, edit=False)
     await callback_query.answer()
-@router.callback_query(F.data.startswith("reply_feedback:"))
+@router.callback_query(ReplyFeedback.filter())
 async def reply_to_feedback(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Start replying to feedback."""
     if not is_admin(callback_query.from_user.id):
@@ -1740,7 +1969,7 @@ async def reply_to_feedback(callback_query: types.CallbackQuery, state: FSMConte
         ]),
     )
 
-@router.callback_query(F.data == "cancel_reply")
+@router.callback_query(CancelReply.filter())
 async def cancel_reply(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Cancel replying to feedback."""
     await state.clear()
@@ -1748,7 +1977,7 @@ async def cancel_reply(callback_query: types.CallbackQuery, state: FSMContext) -
     await callback_query.message.answer(
         "❌ Ответ отменен",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")]
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu_main")]
         ]),
     )
 
@@ -1801,6 +2030,11 @@ async def admin_clients_menu(message: types.Message) -> None:
     if not is_admin(message.from_user.id):
         await message.answer("У вас нет доступа к админ-меню")
         return
+    
+    error = is_sandbox_restricted("📋 Управление клиентами")
+    if error:
+        await message.answer(error)
+        return
 
     await message.answer(
         "👥 Работа с клиентами",
@@ -1808,9 +2042,10 @@ async def admin_clients_menu(message: types.Message) -> None:
     )
 
 
-@router.callback_query(F.data == "clients:menu")
-async def admin_clients_menu_callback(callback_query: types.CallbackQuery) -> None:
-    """Open clients root menu from callbacks."""
+@router.callback_query(ClientsMenu.filter())
+async def admin_clients_menu_callback(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+    """Open clients root menu from callbacks. Initialize viewing state."""
+    await state.clear()
     await callback_query.message.edit_text(
         "👥 Работа с клиентами",
         reply_markup=clients_root_keyboard(),
@@ -1818,38 +2053,69 @@ async def admin_clients_menu_callback(callback_query: types.CallbackQuery) -> No
     await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("clients:list:"))
-async def clients_list(callback_query: types.CallbackQuery) -> None:
-    """Show clients page."""
+@router.callback_query(ClientsList.filter())
+async def clients_list(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+    """Show clients page with FSM state tracking."""
     page = int(callback_query.data.rsplit(":", 1)[1])
+    await state.set_state(AdminClientsViewStates.viewing_list)
+    await state.update_data(view_type="clients", current_page=page)
     await render_clients_page(callback_query.message, page)
     await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("clients:bans:"))
-async def clients_banlist(callback_query: types.CallbackQuery) -> None:
-    """Show ban list page."""
+@router.callback_query(ClientsBans.filter())
+async def clients_banlist(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+    """Show ban list page with FSM state tracking."""
+    if not is_admin(callback_query.from_user.id):
+        await callback_query.answer("У вас нет доступа", show_alert=True)
+        return
+    
+    error = is_sandbox_restricted("⛔ Управление банлистом")
+    if error:
+        await callback_query.message.edit_text(error)
+        await callback_query.answer()
+        return
+    
     page = int(callback_query.data.rsplit(":", 1)[1])
+    await state.set_state(AdminClientsViewStates.viewing_list)
+    await state.update_data(view_type="bans", current_page=page)
     await render_banlist_page(callback_query.message, page)
     await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("clients:view:"))
-@router.callback_query(F.data.startswith("clients:banview:"))
-async def client_view(callback_query: types.CallbackQuery) -> None:
-    """Show client card from clients list or ban list."""
+@router.callback_query(ClientsView.filter())
+@router.callback_query(ClientsBanView.filter())
+async def client_view(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+    """Show client card from clients list or ban list with FSM state."""
     parts = callback_query.data.split(":")
     source = "bans" if parts[1] == "banview" else "clients"
     telegram_id = int(parts[2])
     page = int(parts[3])
+    
+    await state.set_state(AdminClientsViewStates.viewing_detail)
+    await state.update_data(
+        detail_telegram_id=telegram_id,
+        detail_source=source,
+        detail_page=page,
+    )
     await render_client_card(callback_query.message, telegram_id, source, page)
     await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("clients:history:"))
-async def client_history(callback_query: types.CallbackQuery) -> None:
-    """Show client appointment history."""
+@router.callback_query(ClientsHistory.filter())
+async def client_history(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+    """Show client appointment history with FSM context."""
     _, _, telegram_id, source, page = callback_query.data.split(":")
+    
+    # Store state for this view
+    await state.set_state(AdminClientsViewStates.viewing_detail)
+    await state.update_data(
+        detail_telegram_id=int(telegram_id),
+        detail_source=source,
+        detail_page=int(page),
+        viewing_history=True,
+    )
+    
     history = await AdminService.get_client_history(int(telegram_id))
     if not history:
         await callback_query.answer("История пуста", show_alert=True)
@@ -1878,9 +2144,9 @@ async def client_history(callback_query: types.CallbackQuery) -> None:
     await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("clients:ban:"))
+@router.callback_query(ClientsBan.filter())
 async def client_ban_start(callback_query: types.CallbackQuery, state: FSMContext) -> None:
-    """Start ban reason capture."""
+    """Start ban reason capture with FSM context preservation."""
     _, _, telegram_id, source, page = callback_query.data.split(":")
     if await AdminService.is_user_banned(int(telegram_id)):
         await callback_query.answer("Пользователь уже в бане", show_alert=True)
@@ -1891,6 +2157,10 @@ async def client_ban_start(callback_query: types.CallbackQuery, state: FSMContex
         target_telegram_id=int(telegram_id),
         client_source=source,
         client_page=int(page),
+        # Save detail context for restoration after ban
+        detail_telegram_id=int(telegram_id),
+        detail_source=source,
+        detail_page=int(page),
     )
     await callback_query.message.answer(
         f"⛔ Введите причину блокировки для {telegram_id}",
@@ -1903,7 +2173,7 @@ async def client_ban_start(callback_query: types.CallbackQuery, state: FSMContex
 
 @router.message(AdminClientStates.ban_reason)
 async def client_ban_finish(message: types.Message, state: FSMContext) -> None:
-    """Save ban reason and ban user."""
+    """Save ban reason and ban user, return to detail view with FSM."""
     reason = (message.text or "").strip()
     if not reason:
         await message.answer("❌ Укажите причину блокировки текстом.")
@@ -1914,11 +2184,18 @@ async def client_ban_finish(message: types.Message, state: FSMContext) -> None:
     source = data.get("client_source", "clients")
     page = int(data.get("client_page", 1))
     await AdminService.ban_user(telegram_id, message.from_user.id, reason)
-    await state.clear()
+    
+    # Return to detail view with state
+    await state.set_state(AdminClientsViewStates.viewing_detail)
+    await state.update_data(
+        detail_telegram_id=telegram_id,
+        detail_source=source,
+        detail_page=page,
+    )
     await message.answer(f"✅ Пользователь {telegram_id} заблокирован.\nПричина: {reason}")
 
 
-@router.callback_query(F.data.startswith("clients:unban:"))
+@router.callback_query(ClientsUnban.filter())
 async def client_unban(callback_query: types.CallbackQuery) -> None:
     """Unban a user."""
     _, _, telegram_id, source, page = callback_query.data.split(":")
@@ -1931,15 +2208,19 @@ async def client_unban(callback_query: types.CallbackQuery) -> None:
     await callback_query.answer("Пользователь разблокирован")
 
 
-@router.callback_query(F.data.startswith("clients:message:"))
+@router.callback_query(ClientsMessage.filter())
 async def client_message_start(callback_query: types.CallbackQuery, state: FSMContext) -> None:
-    """Start message to client flow."""
+    """Start message to client flow with FSM context."""
     _, _, telegram_id, source, page = callback_query.data.split(":")
     await state.set_state(AdminClientStates.message_text)
     await state.update_data(
         target_telegram_id=int(telegram_id),
         client_source=source,
         client_page=int(page),
+        # Save detail context for restoration
+        detail_telegram_id=int(telegram_id),
+        detail_source=source,
+        detail_page=int(page),
     )
     await callback_query.message.answer(
         f"💬 Напишите сообщение для {telegram_id}",
@@ -1952,7 +2233,7 @@ async def client_message_start(callback_query: types.CallbackQuery, state: FSMCo
 
 @router.message(AdminClientStates.message_text)
 async def client_message_finish(message: types.Message, state: FSMContext) -> None:
-    """Send a direct message to client via user bot."""
+    """Send a direct message to client via user bot, return to detail with FSM."""
     text = (message.text or "").strip()
     if not text:
         await message.answer("❌ Отправьте текстовое сообщение.")
@@ -1960,6 +2241,8 @@ async def client_message_finish(message: types.Message, state: FSMContext) -> No
 
     data = await state.get_data()
     client_telegram_id = int(data["target_telegram_id"])
+    source = data.get("client_source", "clients")
+    page = int(data.get("client_page", 1))
 
     from app.config import BOT_TOKEN, TELEGRAM_PROXY
     from aiogram.client.default import DefaultBotProperties
@@ -1981,21 +2264,53 @@ async def client_message_finish(message: types.Message, state: FSMContext) -> No
         await message.answer(f"❌ Ошибка отправки: {e}")
     finally:
         await user_bot.session.close()
-        await state.clear()
+    
+    # Return to detail view with state
+    await state.set_state(AdminClientsViewStates.viewing_detail)
+    await state.update_data(
+        detail_telegram_id=client_telegram_id,
+        detail_source=source,
+        detail_page=page,
+    )
 
 
-@router.callback_query(F.data.startswith("clients:cancel:"))
-async def client_action_cancel(callback_query: types.CallbackQuery, state: FSMContext) -> None:
-    """Cancel current client action and return to card."""
-    _, _, source, page, telegram_id = callback_query.data.split(":")
-    await state.clear()
-    await render_client_card(callback_query.message, int(telegram_id), source, int(page))
-    await callback_query.answer("Действие отменено")
+@router.callback_query(AppointmentNav.filter(), AdminAppointmentsViewStates.viewing_appointments)
+async def handle_appointment_navigation(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+    """Handle navigation in appointments view with FSM state."""
+    if not is_admin(callback_query.from_user.id):
+        await callback_query.answer("У вас нет доступа", show_alert=True)
+        return
+
+    parts = callback_query.data.split(":")
+    if len(parts) < 3:
+        await callback_query.answer()
+        return
+    
+    view_type = parts[1]
+    direction = parts[2]
+    
+    data = await state.get_data()
+    current_page = data.get("current_page", 1)
+    
+    if direction == "prev":
+        new_page = current_page - 1
+    elif direction == "next":
+        new_page = current_page + 1
+    else:
+        await callback_query.answer()
+        return
+    
+    # Update state
+    await state.update_data(current_page=new_page)
+    
+    # Re-render the page
+    await render_appointments_page(callback_query.message, view_type, new_page)
+    await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("clients:book:"))
+@router.callback_query(ClientsBook.filter())
 async def client_manual_booking_start(callback_query: types.CallbackQuery, state: FSMContext) -> None:
-    """Start manual booking for a client."""
+    """Start manual booking for a client with FSM context."""
     _, _, telegram_id, source, page = callback_query.data.split(":")
     client = await AdminService.get_client_by_telegram_id(int(telegram_id))
     if not client:
@@ -2004,7 +2319,7 @@ async def client_manual_booking_start(callback_query: types.CallbackQuery, state
 
     services = await CatalogService.list_services()
     buttons = [
-        [InlineKeyboardButton(text=f"{service['name']} | {service['price']} ₽", callback_data=f"manualbook:service:{service['id']}")]
+        [InlineKeyboardButton(text=f"{service['name']} | {service['price']} ₽", callback_data=f"manualbook_service:{service['id']}")]
         for service in services
     ]
     buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data=f"clients:cancel:{source}:{page}:{telegram_id}")])
@@ -2014,6 +2329,10 @@ async def client_manual_booking_start(callback_query: types.CallbackQuery, state
         manual_telegram_id=int(telegram_id),
         manual_source=source,
         manual_page=int(page),
+        # Store detail context for return after booking
+        detail_telegram_id=int(telegram_id),
+        detail_source=source,
+        detail_page=int(page),
     )
     await callback_query.message.answer(
         f"📝 Ручная запись для {format_client_name(client)}\nВыберите услугу:",
@@ -2022,7 +2341,7 @@ async def client_manual_booking_start(callback_query: types.CallbackQuery, state
     await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("manualbook:service:"), AdminManualBookingStates.select_service)
+@router.callback_query(ManualBookService.filter(), AdminManualBookingStates.select_service)
 async def client_manual_booking_service(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Select service for manual booking."""
     service_id = int(callback_query.data.split(":")[2])
@@ -2044,7 +2363,7 @@ async def client_manual_booking_service(callback_query: types.CallbackQuery, sta
     await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("calendar:"), AdminManualBookingStates.select_date)
+@router.callback_query(CalendarAction.filter(), AdminManualBookingStates.select_date)
 async def manual_booking_calendar_month_change(callback_query: types.CallbackQuery) -> None:
     """Navigate calendar while selecting manual booking date."""
     year_month = callback_query.data.split(":", 1)[1]
@@ -2055,7 +2374,7 @@ async def manual_booking_calendar_month_change(callback_query: types.CallbackQue
     await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("calendar_date:"), AdminManualBookingStates.select_date)
+@router.callback_query(CalendarDate.filter(), AdminManualBookingStates.select_date)
 async def manual_booking_date_selected(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Select date for manual booking and offer time slots."""
     appointment_date = callback_query.data.split(":", 1)[1]
@@ -2075,7 +2394,7 @@ async def manual_booking_date_selected(callback_query: types.CallbackQuery, stat
     await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("time:"), AdminManualBookingStates.select_time)
+@router.callback_query(TimeSelect.filter(), AdminManualBookingStates.select_time)
 async def manual_booking_time_selected(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Select time for manual booking."""
     appointment_time = callback_query.data.split(":", 1)[1]
@@ -2085,13 +2404,13 @@ async def manual_booking_time_selected(callback_query: types.CallbackQuery, stat
         "💬 Введите комментарий к записи или отправьте `нет`.",
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="Без комментария", callback_data="manualbook:note:none")]]
+            inline_keyboard=[[InlineKeyboardButton(text="Без комментария", callback_data="manualbook_note_none")]]
         ),
     )
     await callback_query.answer()
 
 
-@router.callback_query(F.data == "manualbook:note:none", AdminManualBookingStates.note)
+@router.callback_query(ManualBookNote.filter(), AdminManualBookingStates.note)
 async def manual_booking_no_note(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Create manual booking without note."""
     await callback_query.answer()  # Answer callback immediately
@@ -2104,7 +2423,7 @@ async def manual_booking_note_received(message: types.Message, state: FSMContext
     note = "" if (message.text or "").strip().lower() == "нет" else (message.text or "").strip()
     await finalize_manual_booking(message, state, message.from_user, note=note)
 
-@router.callback_query(F.data == "service:list")
+@router.callback_query(ServiceList.filter())
 async def show_services_list(callback_query: types.CallbackQuery) -> None:
     if not is_admin(callback_query.from_user.id):
         await callback_query.answer("У вас нет доступа", show_alert=True)
@@ -2127,7 +2446,7 @@ async def show_services_list(callback_query: types.CallbackQuery) -> None:
             reply_markup=services_list_keyboard(services),
         )
 
-@router.callback_query(F.data == "service:create")
+@router.callback_query(ServiceCreate.filter())
 async def start_create_service(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Start creating new service."""
     if not is_admin(callback_query.from_user.id):
@@ -2292,14 +2611,14 @@ async def process_service_duration(message: types.Message, state: FSMContext) ->
             "❌ Пожалуйста, введите положительное число для длительности:"
         )
 
-@router.callback_query(F.data.startswith("service:edit:"))
-async def edit_service(callback_query: types.CallbackQuery) -> None:
+@router.callback_query(ServiceEdit.filter())
+async def edit_service(callback_query: types.CallbackQuery, callback_data: ServiceEdit) -> None:
     """Show service edit options."""
     if not is_admin(callback_query.from_user.id):
         await callback_query.answer("У вас нет доступа", show_alert=True)
         return
     
-    service_id = int(callback_query.data.split(":", 2)[2])
+    service_id = callback_data.service_id
     service = await AdminService.get_service(service_id)
     
     if not service:
@@ -2319,16 +2638,15 @@ async def edit_service(callback_query: types.CallbackQuery) -> None:
     )
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("service:edit_field:"))
-async def edit_service_field(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(ServiceEditField.filter())
+async def edit_service_field(callback_query: types.CallbackQuery, callback_data: ServiceEditField, state: FSMContext) -> None:
     """Start editing a specific service field."""
     if not is_admin(callback_query.from_user.id):
         await callback_query.answer("У вас нет доступа", show_alert=True)
         return
     
-    parts = callback_query.data.split(":")
-    service_id = int(parts[2])
-    field = parts[3]
+    service_id = callback_data.service_id
+    field = callback_data.field
     
     service = await AdminService.get_service(service_id)
     if not service:
@@ -2426,28 +2744,28 @@ async def process_service_photo(message: types.Message, state: FSMContext) -> No
             "❌ Пожалуйста, отправьте фотографию:"
         )
 
-@router.callback_query(F.data.startswith("service:delete:"))
-async def confirm_delete_service(callback_query: types.CallbackQuery) -> None:
+@router.callback_query(ServiceDelete.filter())
+async def confirm_delete_service(callback_query: types.CallbackQuery, callback_data: ServiceDelete) -> None:
     """Confirm service deletion."""
     if not is_admin(callback_query.from_user.id):
         await callback_query.answer("У вас нет доступа", show_alert=True)
         return
     
-    service_id = int(callback_query.data.split(":", 2)[2])
+    service_id = callback_data.service_id
     await callback_query.message.edit_text(
         "⚠️ Вы уверены? Услуга будет удалена.",
         reply_markup=confirm_delete_service_keyboard(service_id),
     )
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("service:confirm_delete:"))
-async def delete_service(callback_query: types.CallbackQuery) -> None:
+@router.callback_query(ServiceConfirmDelete.filter())
+async def delete_service(callback_query: types.CallbackQuery, callback_data: ServiceConfirmDelete) -> None:
     """Delete service."""
     if not is_admin(callback_query.from_user.id):
         await callback_query.answer("У вас нет доступа", show_alert=True)
         return
     
-    service_id = int(callback_query.data.split(":", 2)[2])
+    service_id = callback_data.service_id
     success = await AdminService.delete_service(service_id)
     
     if success:
@@ -2466,7 +2784,7 @@ async def delete_service(callback_query: types.CallbackQuery) -> None:
     else:
         await callback_query.answer("❌ Не удалось удалить услугу. Она используется в записях.", show_alert=True)
 
-@router.callback_query(F.data == "menu:main")
+@router.callback_query(MenuMain.filter())
 async def admin_main_menu(callback_query: types.CallbackQuery) -> None:
     """Show main admin menu."""
     if not is_admin(callback_query.from_user.id):
@@ -2478,7 +2796,7 @@ async def admin_main_menu(callback_query: types.CallbackQuery) -> None:
     )
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("unblock_day:"))
+@router.callback_query(UnblockDay.filter())
 async def unblock_entire_day(callback_query: types.CallbackQuery) -> None:
     """Unblock an entire day."""
     if not is_admin(callback_query.from_user.id):
@@ -2541,7 +2859,7 @@ async def unblock_entire_day(callback_query: types.CallbackQuery) -> None:
             reply_markup=blocked_slots_keyboard(blocked_for_keyboard, list(full_days)),
         )
 
-@router.callback_query(F.data.startswith("unblock:"))
+@router.callback_query(Unblock.filter())
 async def unblock_time_slot(callback_query: types.CallbackQuery) -> None:
     """Unblock a time slot or entire day."""
     if not is_admin(callback_query.from_user.id):
@@ -2618,7 +2936,7 @@ async def unblock_time_slot(callback_query: types.CallbackQuery) -> None:
     
     await callback_query.answer(msg)
 
-@router.callback_query(F.data == "admin:menu")
+@router.callback_query(AdminMenuCB.filter())
 async def back_to_admin_menu(callback_query: types.CallbackQuery) -> None:
     """Return to admin main menu from appointments."""
     if not is_admin(callback_query.from_user.id):
@@ -2631,7 +2949,7 @@ async def back_to_admin_menu(callback_query: types.CallbackQuery) -> None:
     )
     await callback_query.answer()
 
-@router.callback_query(F.data == "admin:schedule_menu")
+@router.callback_query(AdminScheduleMenu.filter())
 async def admin_schedule_menu(callback_query: types.CallbackQuery) -> None:
     """Show schedule management submenu."""
     if not is_admin(callback_query.from_user.id):
@@ -2649,7 +2967,7 @@ async def admin_schedule_menu(callback_query: types.CallbackQuery) -> None:
     await callback_query.answer()
 
 
-@router.callback_query(F.data == "admin:services")
+@router.callback_query(AdminServices.filter())
 async def back_to_admin_services(callback_query: types.CallbackQuery) -> None:
     """Return to services menu."""
     if not is_admin(callback_query.from_user.id):
@@ -2818,14 +3136,14 @@ async def admin_contacts(message: types.Message, state: FSMContext) -> None:
         text = "📞 КОНТАКТЫ САЛОНА\n\n❌ Контакты еще не добавлены"
     
     buttons = [
-        [InlineKeyboardButton(text="✏️ Редактировать", callback_data="contact:edit_all")],
-        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="admin:menu")],
+        [InlineKeyboardButton(text="✏️ Редактировать", callback_data="contact_edit_all")],
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="admin_menu")],
     ]
     
     await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
 
 
-@router.callback_query(F.data == "contact:edit_all")
+@router.callback_query(ContactEditAll.filter())
 async def edit_contacts_start(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Start editing contacts as a single text block."""
     if not is_admin(callback_query.from_user.id):
@@ -2847,7 +3165,7 @@ async def edit_contacts_start(callback_query: types.CallbackQuery, state: FSMCon
         "📲 Instagram: @salon_MSK\n"
     )
     
-    buttons = [[InlineKeyboardButton(text="❌ Отмена", callback_data="admin:contacts")]]
+    buttons = [[InlineKeyboardButton(text="❌ Отмена", callback_data="admin_contacts")]]
     
     await callback_query.message.edit_text(
         text,
@@ -2877,14 +3195,14 @@ async def process_contacts_edit(message: types.Message, state: FSMContext) -> No
     )
     
     buttons = [
-        [InlineKeyboardButton(text="✏️ Редактировать", callback_data="contact:edit_all")],
-        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="admin:menu")],
+        [InlineKeyboardButton(text="✏️ Редактировать", callback_data="contact_edit_all")],
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="admin_menu")],
     ]
     
     await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
 
 
-@router.callback_query(F.data == "admin:contacts")
+@router.callback_query(AdminContactsMenu.filter())
 async def admin_contacts_callback(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Callback handler for contacts menu."""
     if not is_admin(callback_query.from_user.id):
@@ -2901,8 +3219,8 @@ async def admin_contacts_callback(callback_query: types.CallbackQuery, state: FS
         text = "📞 КОНТАКТЫ САЛОНА\n\n❌ Контакты еще не добавлены"
     
     buttons = [
-        [InlineKeyboardButton(text="✏️ Редактировать", callback_data="contact:edit_all")],
-        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="admin:menu")],
+        [InlineKeyboardButton(text="✏️ Редактировать", callback_data="contact_edit_all")],
+        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="admin_menu")],
     ]
     
     await callback_query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
@@ -2924,12 +3242,12 @@ async def notification_command(message: types.Message, state: FSMContext) -> Non
         "Пример: 09:00\n\n"
         "Уведомления будут отправляться только в рабочие дни со списком записей на этот день.",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="❌ Отмена", callback_data="notification:cancel")]
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="notification_cancel")]
         ]),
     )
 
 
-@router.callback_query(F.data == "notification:cancel")
+@router.callback_query(NotificationCancel.filter())
 async def notification_cancel(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Cancel notification time setting."""
     await state.clear()
@@ -3043,6 +3361,11 @@ async def export_period_appointments(message: types.Message) -> None:
     if not is_admin(message.from_user.id):
         await message.answer("У вас нет доступа")
         return
+    
+    error = is_sandbox_restricted("📊 Выгрузка статистики за период")
+    if error:
+        await message.answer(error)
+        return
 
     args = message.text.split()
     if len(args) < 3:
@@ -3134,6 +3457,11 @@ async def export_clients_list(message: types.Message) -> None:
     if not is_admin(message.from_user.id):
         await message.answer("У вас нет доступа")
         return
+    
+    error = is_sandbox_restricted("📊 Выгрузка списка клиентов")
+    if error:
+        await message.answer(error)
+        return
 
     clients = await AdminService.get_all_clients()
 
@@ -3188,6 +3516,11 @@ async def show_statistics(message: types.Message) -> None:
     """Show appointment statistics."""
     if not is_admin(message.from_user.id):
         await message.answer("У вас нет доступа")
+        return
+    
+    error = is_sandbox_restricted("📊 Выгрузка статистики")
+    if error:
+        await message.answer(error)
         return
     
     stats = await AdminService.get_statistics()
@@ -3285,12 +3618,12 @@ async def setup_wizard_start(message: types.Message, state: FSMContext) -> None:
         f"Сейчас: <b>UTC{current_offset:+d}</b>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_timezone")]
+            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_timezone")]
         ]),
     )
 
 
-@router.callback_query(F.data == "setup:skip_timezone")
+@router.callback_query(SetupSkipTimezone.filter())
 async def setup_skip_timezone(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Skip timezone step and go to schedule."""
     await state.set_state(SetupWizardStates.step_schedule_type)
@@ -3305,10 +3638,10 @@ async def setup_skip_timezone(callback_query: types.CallbackQuery, state: FSMCon
         "🆓 Свободный — все дни будут открыты",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📅 Цикличный", callback_data="setup:schedule_type:cycle")],
-            [InlineKeyboardButton(text="📆 По дням недели", callback_data="setup:schedule_type:weekdays")],
-            [InlineKeyboardButton(text="🆓 Свободный", callback_data="setup:schedule_type:free")],
-            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_schedule_type")],
+            [InlineKeyboardButton(text="📅 Цикличный", callback_data="setup_schedule_type:cycle")],
+            [InlineKeyboardButton(text="📆 По дням недели", callback_data="setup_schedule_type:weekdays")],
+            [InlineKeyboardButton(text="🆓 Свободный", callback_data="setup_schedule_type:free")],
+            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_schedule_type")],
         ]),
     )
     
@@ -3348,10 +3681,10 @@ async def setup_process_timezone(message: types.Message, state: FSMContext) -> N
                 "🆓 Свободный — все дни будут открыты\n",
                         parse_mode="HTML",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="📅 Цикличный", callback_data="setup:schedule_type:cycle")],
-                    [InlineKeyboardButton(text="📆 По дням недели", callback_data="setup:schedule_type:weekdays")],
-                    [InlineKeyboardButton(text="🆓 Свободный", callback_data="setup:schedule_type:free")],
-                    [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_schedule_type")],
+                    [InlineKeyboardButton(text="📅 Цикличный", callback_data="setup_schedule_type:cycle")],
+                    [InlineKeyboardButton(text="📆 По дням недели", callback_data="setup_schedule_type:weekdays")],
+                    [InlineKeyboardButton(text="🆓 Свободный", callback_data="setup_schedule_type:free")],
+                    [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_schedule_type")],
                 ]),
             )
         else:
@@ -3365,7 +3698,7 @@ async def setup_process_timezone(message: types.Message, state: FSMContext) -> N
         )
 
 
-@router.callback_query(F.data.startswith("setup:schedule_type:"))
+@router.callback_query(SetupScheduleType.filter())
 async def setup_choose_schedule_type(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Process schedule type selection."""
     schedule_type = callback_query.data.split(":")[2]  # cycle, weekdays, or free
@@ -3392,7 +3725,7 @@ async def setup_choose_schedule_type(callback_query: types.CallbackQuery, state:
             "Введите в формате <code>рабочих/выходных</code>:",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_schedule_type")]
+                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_schedule_type")]
             ]),
         )
     elif schedule_type == "weekdays":
@@ -3420,7 +3753,7 @@ async def setup_choose_schedule_type(callback_query: types.CallbackQuery, state:
         
         buttons.append([
             InlineKeyboardButton(text="✅ Подтвердить", callback_data="setup_weekdays_confirm"),
-            InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_schedule_type"),
+            InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_schedule_type"),
         ])
         
         await callback_query.message.answer(
@@ -3440,7 +3773,7 @@ async def setup_choose_schedule_type(callback_query: types.CallbackQuery, state:
             "• <code>09:00-18:00</code>",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_hours")]
+                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_hours")]
             ]),
         )
     
@@ -3491,7 +3824,7 @@ async def setup_process_cycle_pattern(message: types.Message, state: FSMContext)
         f"<i>Сегодня: {today}</i>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_schedule_type")]
+            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_schedule_type")]
         ]),
     )
 
@@ -3521,7 +3854,7 @@ async def setup_process_cycle_date(message: types.Message, state: FSMContext) ->
             f"Введите время в формате <code>HH:MM-HH:MM</code>\n",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_hours")]
+                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_hours")]
             ]),
         )
     else:
@@ -3532,7 +3865,7 @@ async def setup_process_cycle_date(message: types.Message, state: FSMContext) ->
         )
 
 
-@router.callback_query(F.data.startswith("setup_weekday:"), SetupWizardStates.step_schedule_weekdays)
+@router.callback_query(SetupWeekday.filter(), SetupWizardStates.step_schedule_weekdays)
 async def setup_toggle_weekday(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Toggle a weekday in setup."""
     day_idx = int(callback_query.data.split(":")[1])
@@ -3553,13 +3886,13 @@ async def setup_toggle_weekday(callback_query: types.CallbackQuery, state: FSMCo
             selected,
             toggle_cb_name="setup_weekday",
             confirm_cb_name="setup_weekdays_confirm",
-            cancel_cb_name="setup:skip_schedule_type",
+            cancel_cb_name="setup_skip_schedule_type",
         )
     )
     await callback_query.answer()
 
 
-@router.callback_query(F.data == "setup_weekdays_confirm", SetupWizardStates.step_schedule_weekdays)
+@router.callback_query(SetupWeekdaysConfirm.filter(), SetupWizardStates.step_schedule_weekdays)
 async def setup_confirm_weekdays(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Confirm weekdays selection and save."""
     data = await state.get_data()
@@ -3590,7 +3923,7 @@ async def setup_confirm_weekdays(callback_query: types.CallbackQuery, state: FSM
             f"Введите время в формате <code>HH:MM-HH:MM</code>\n",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_hours")]
+                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_hours")]
             ]),
         )
         await callback_query.answer()
@@ -3599,7 +3932,7 @@ async def setup_confirm_weekdays(callback_query: types.CallbackQuery, state: FSM
 
 
 
-@router.callback_query(F.data == "setup:skip_schedule_type")
+@router.callback_query(SetupSkipScheduleType.filter())
 async def setup_skip_schedule_type(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Skip entire schedule setup and go to notification."""
     await state.set_state(SetupWizardStates.step_notification_time)
@@ -3614,7 +3947,7 @@ async def setup_skip_schedule_type(callback_query: types.CallbackQuery, state: F
         "Приходит только в рабочие дни.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_notification")]
+            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_notification")]
         ]),
     )
     
@@ -3675,7 +4008,7 @@ async def setup_process_hours(message: types.Message, state: FSMContext) -> None
             "Нажмите пропустить, если перерыва нет.",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_breaks")]
+                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_breaks")]
             ]),
         )
     except (ValueError, IndexError):
@@ -3689,7 +4022,7 @@ async def setup_process_hours(message: types.Message, state: FSMContext) -> None
         )
 
 
-@router.callback_query(F.data == "setup:skip_hours")
+@router.callback_query(SetupSkipHours.filter())
 async def setup_skip_hours(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Skip hours step and go to breaks."""
     await state.set_state(SetupWizardStates.step_schedule_breaks)
@@ -3704,7 +4037,7 @@ async def setup_skip_hours(callback_query: types.CallbackQuery, state: FSMContex
             "Нажмите пропустить, если перерыва нет.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_breaks")]
+            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_breaks")]
         ]),
     )
     
@@ -3762,12 +4095,12 @@ async def setup_process_breaks(message: types.Message, state: FSMContext) -> Non
             "Через какой промежуток времени можно записаться?",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⏱️ 15 минут", callback_data="setup:interval:15")],
-                [InlineKeyboardButton(text="⏱️ 30 минут", callback_data="setup:interval:30")],
-                [InlineKeyboardButton(text="⏱️ 45 минут", callback_data="setup:interval:45")],
-                [InlineKeyboardButton(text="⏱️ 60 минут", callback_data="setup:interval:60")],
-                [InlineKeyboardButton(text="Другое", callback_data="setup:interval:custom")],
-                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_interval")],
+                [InlineKeyboardButton(text="⏱️ 15 минут", callback_data="setup_interval:15")],
+                [InlineKeyboardButton(text="⏱️ 30 минут", callback_data="setup_interval:30")],
+                [InlineKeyboardButton(text="⏱️ 45 минут", callback_data="setup_interval:45")],
+                [InlineKeyboardButton(text="⏱️ 60 минут", callback_data="setup_interval:60")],
+                [InlineKeyboardButton(text="Другое", callback_data="setup_interval:custom")],
+                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_interval")],
             ]),
         )
     except (ValueError, IndexError):
@@ -3781,7 +4114,7 @@ async def setup_process_breaks(message: types.Message, state: FSMContext) -> Non
         )
 
 
-@router.callback_query(F.data == "setup:skip_breaks")
+@router.callback_query(SetupSkipBreaks.filter())
 async def setup_skip_breaks(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Skip breaks step and go to interval."""
     await state.set_state(SetupWizardStates.step_schedule_interval)
@@ -3793,19 +4126,19 @@ async def setup_skip_breaks(callback_query: types.CallbackQuery, state: FSMConte
             "Через какой промежуток времени можно записаться?",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⏱️ 15 минут", callback_data="setup:interval:15")],
-            [InlineKeyboardButton(text="⏱️ 30 минут", callback_data="setup:interval:30")],
-            [InlineKeyboardButton(text="⏱️ 45 минут", callback_data="setup:interval:45")],
-            [InlineKeyboardButton(text="⏱️ 60 минут", callback_data="setup:interval:60")],
-            [InlineKeyboardButton(text="Другое", callback_data="setup:interval:custom")],
-            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_interval")],
+            [InlineKeyboardButton(text="⏱️ 15 минут", callback_data="setup_interval:15")],
+            [InlineKeyboardButton(text="⏱️ 30 минут", callback_data="setup_interval:30")],
+            [InlineKeyboardButton(text="⏱️ 45 минут", callback_data="setup_interval:45")],
+            [InlineKeyboardButton(text="⏱️ 60 минут", callback_data="setup_interval:60")],
+            [InlineKeyboardButton(text="Другое", callback_data="setup_interval:custom")],
+            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_interval")],
         ]),
     )
     
     await callback_query.answer()
 
 
-@router.callback_query(F.data.startswith("setup:interval:"))
+@router.callback_query(SetupInterval.filter())
 async def setup_choose_interval(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Process interval selection."""
     data_part = callback_query.data.split(":")[2]
@@ -3817,7 +4150,7 @@ async def setup_choose_interval(callback_query: types.CallbackQuery, state: FSMC
             "<i>Минимальный интервал: 5 минут</i>",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="◀ Назад", callback_data="setup:back_to_interval")
+                InlineKeyboardButton(text="◀ Назад", callback_data="setup_back_to_interval")
             ]])
         )
         await state.set_state(SetupWizardStates.step_custom_interval)
@@ -3840,14 +4173,14 @@ async def setup_choose_interval(callback_query: types.CallbackQuery, state: FSMC
         "Приходит только в рабочие дни.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_notification")]
+            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_notification")]
         ]),
     )
     
     await callback_query.answer()
 
 
-@router.callback_query(F.data == "setup:back_to_interval")
+@router.callback_query(SetupBackToInterval.filter())
 async def setup_back_to_interval(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Back to interval selection in setup wizard."""
     await state.set_state(SetupWizardStates.step_schedule_interval)
@@ -3856,12 +4189,12 @@ async def setup_back_to_interval(callback_query: types.CallbackQuery, state: FSM
         "Через какой промежуток времени можно записаться?",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⏱️ 15 минут", callback_data="setup:interval:15")],
-            [InlineKeyboardButton(text="⏱️ 30 минут", callback_data="setup:interval:30")],
-            [InlineKeyboardButton(text="⏱️ 45 минут", callback_data="setup:interval:45")],
-            [InlineKeyboardButton(text="⏱️ 60 минут", callback_data="setup:interval:60")],
-            [InlineKeyboardButton(text="Другое", callback_data="setup:interval:custom")],
-            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_interval")],
+            [InlineKeyboardButton(text="⏱️ 15 минут", callback_data="setup_interval:15")],
+            [InlineKeyboardButton(text="⏱️ 30 минут", callback_data="setup_interval:30")],
+            [InlineKeyboardButton(text="⏱️ 45 минут", callback_data="setup_interval:45")],
+            [InlineKeyboardButton(text="⏱️ 60 минут", callback_data="setup_interval:60")],
+            [InlineKeyboardButton(text="Другое", callback_data="setup_interval:custom")],
+            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_interval")],
         ]),
     )
     await callback_query.answer()
@@ -3902,12 +4235,12 @@ async def setup_process_custom_interval(message: types.Message, state: FSMContex
         "Приходит только в рабочие дни.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_notification")]
+            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_notification")]
         ]),
     )
 
 
-@router.callback_query(F.data == "setup:skip_interval")
+@router.callback_query(SetupSkipInterval.filter())
 async def setup_skip_interval(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Skip interval step and go to notification."""
     await state.set_state(SetupWizardStates.step_notification_time)
@@ -3923,7 +4256,7 @@ async def setup_skip_interval(callback_query: types.CallbackQuery, state: FSMCon
         "Приходит только в рабочие дни.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_notification")]
+            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_notification")]
         ]),
     )
     
@@ -3971,7 +4304,7 @@ async def setup_process_notification_time(message: types.Message, state: FSMCont
             "📸 @maria_nails",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_contacts")]
+                [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_contacts")]
             ]),
         )
     except (ValueError, IndexError):
@@ -3985,7 +4318,7 @@ async def setup_process_notification_time(message: types.Message, state: FSMCont
         )
 
 
-@router.callback_query(F.data == "setup:skip_notification")
+@router.callback_query(SetupSkipNotification.filter())
 async def setup_skip_notification(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Skip notification time and go to contacts."""
     await state.set_state(SetupWizardStates.step_contacts)
@@ -4002,7 +4335,7 @@ async def setup_skip_notification(callback_query: types.CallbackQuery, state: FS
         "📸 @maria_nails",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup:skip_contacts")]
+            [InlineKeyboardButton(text="⏭️ Пропустить", callback_data="setup_skip_contacts")]
         ]),
     )
     
@@ -4034,12 +4367,12 @@ async def setup_process_contacts(message: types.Message, state: FSMContext) -> N
         "Нажмите кнопку <b>⚙️ Прайс</b> для настройки услуг",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="admin:menu")]
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="admin_menu")]
         ]),
     )
 
 
-@router.callback_query(F.data == "setup:skip_contacts")
+@router.callback_query(SetupSkipContacts.filter())
 async def setup_skip_contacts(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Skip contacts step and finish setup."""
     await state.clear()
@@ -4056,7 +4389,7 @@ async def setup_skip_contacts(callback_query: types.CallbackQuery, state: FSMCon
         "Нажмите кнопку <b>⚙️ Прайс</b> для настройки услуг",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="admin:menu")]
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="admin_menu")]
         ]),
     )
     
@@ -4083,12 +4416,12 @@ async def timezone_command(message: types.Message, state: FSMContext) -> None:
         f"Сейчас: <b>UTC{current_offset:+d}</b>",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="❌ Отмена", callback_data="timezone:cancel")]
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="timezone_cancel")]
         ]),
     )
 
 
-@router.callback_query(F.data == "timezone:cancel")
+@router.callback_query(TimezoneCancel.filter())
 async def timezone_cancel(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Cancel timezone setting."""
     await state.clear()
@@ -4159,13 +4492,13 @@ async def reload_command(message: types.Message, state: FSMContext) -> None:
         "Процесс займет несколько секунд.",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="✅ Перезагрузить", callback_data="reload:confirm")],
-            [InlineKeyboardButton(text="❌ Отмена", callback_data="reload:cancel")]
+            [InlineKeyboardButton(text="✅ Перезагрузить", callback_data="reload_confirm")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="reload_cancel")]
         ]),
     )
 
 
-@router.callback_query(F.data == "reload:cancel")
+@router.callback_query(ReloadCancel.filter(), ReloadStates.confirm_reload)
 async def reload_cancel(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Cancel reload."""
     await state.clear()
@@ -4173,7 +4506,7 @@ async def reload_cancel(callback_query: types.CallbackQuery, state: FSMContext) 
     await callback_query.answer()
 
 
-@router.callback_query(F.data == "reload:confirm")
+@router.callback_query(ReloadConfirm.filter(), ReloadStates.confirm_reload)
 async def reload_confirm(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Confirm and execute reload."""
     from app.config import RESTART_DELAY

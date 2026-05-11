@@ -1,87 +1,100 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+
 def appointment_admin_keyboard(appointment_id: int) -> InlineKeyboardMarkup:
     """Keyboard for managing an appointment in admin panel."""
+    from app.admin_bot.handlers import AdminReschedule, AdminCancel, AdminMenuCB
+
     buttons = [
         [
-            InlineKeyboardButton(text="📅 Перенести", callback_data=f"admin_reschedule:{appointment_id}"),
-            InlineKeyboardButton(text="❌ Отменить", callback_data=f"admin_cancel:{appointment_id}"),
+            InlineKeyboardButton(text="📅 Перенести", callback_data=AdminReschedule(appointment_id=appointment_id).pack()),
+            InlineKeyboardButton(text="❌ Отменить", callback_data=AdminCancel(appointment_id=appointment_id).pack()),
         ],
         [
-            InlineKeyboardButton(text="◀ Назад", callback_data="admin:menu"),
+            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),
         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def appointments_view_keyboard() -> InlineKeyboardMarkup:
     """Keyboard for choosing how to view appointments."""
+    from app.admin_bot.handlers import ViewAppointments, AdminMenuCB
+
     buttons = [
         [
-            InlineKeyboardButton(text="🗒 На сегодня", callback_data="view:today"),
-            InlineKeyboardButton(text="📆 На неделю", callback_data="view:week"),
+            InlineKeyboardButton(text="🗒 На сегодня", callback_data=ViewAppointments(view_type="today").pack()),
+            InlineKeyboardButton(text="📆 На неделю", callback_data=ViewAppointments(view_type="week").pack()),
         ],
-        [InlineKeyboardButton(text="⏳ Предстоящие", callback_data="view:upcoming")],
-        [InlineKeyboardButton(text="◀ Назад", callback_data="admin:menu")]
+        [InlineKeyboardButton(text="⏳ Предстоящие", callback_data=ViewAppointments(view_type="upcoming").pack())],
+        [InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack())]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def admin_services_keyboard() -> InlineKeyboardMarkup:
     """Keyboard for managing services."""
+    from app.admin_bot.handlers import ServiceCreate, ServiceList, AdminMenuCB
+
     buttons = [
         [
-            InlineKeyboardButton(text="➕ Добавить услугу", callback_data="service:create"),
-            InlineKeyboardButton(text="📋 Список услуг", callback_data="service:list"),
+            InlineKeyboardButton(text="➕ Добавить услугу", callback_data=ServiceCreate().pack()),
+            InlineKeyboardButton(text="📋 Список услуг", callback_data=ServiceList().pack()),
         ],
         [
-            InlineKeyboardButton(text="◀ Назад", callback_data="admin:menu"),
+            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),
         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def services_list_keyboard(services: list[dict]) -> InlineKeyboardMarkup:
     """Keyboard showing all services with edit and delete buttons."""
+    from app.admin_bot.handlers import ServiceEdit, ServiceDelete, ServiceCreate, AdminServices
+
     buttons = []
     for service in services:
         buttons.append([
             InlineKeyboardButton(
                 text=f"{service['name']} - {service['price']}₽",
-                callback_data=f"service:edit:{service['id']}",
+                callback_data=ServiceEdit(service_id=service["id"]).pack(),
             ),
-            InlineKeyboardButton(text="🗑️", callback_data=f"service:delete:{service['id']}"),
+            InlineKeyboardButton(text="🗑️", callback_data=ServiceDelete(service_id=service["id"]).pack()),
         ])
-    buttons.append([InlineKeyboardButton(text="➕ Добавить услугу", callback_data="service:create")])
-    buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin:services")])
+    buttons.append([InlineKeyboardButton(text="➕ Добавить услугу", callback_data=ServiceCreate().pack())])
+    buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data=AdminServices().pack())])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def service_edit_keyboard(service_id: int) -> InlineKeyboardMarkup:
     """Keyboard for editing a service."""
+    from app.admin_bot.handlers import ServiceEditField, ServiceDelete, ServiceList
+
     buttons = [
         [
-            InlineKeyboardButton(text="📝 Имя", callback_data=f"service:edit_field:{service_id}:name"),
-            InlineKeyboardButton(text="💰 Цена", callback_data=f"service:edit_field:{service_id}:price"),
+            InlineKeyboardButton(text="📝 Имя", callback_data=ServiceEditField(service_id=service_id, field="name").pack()),
+            InlineKeyboardButton(text="💰 Цена", callback_data=ServiceEditField(service_id=service_id, field="price").pack()),
         ],
         [
-            InlineKeyboardButton(text="⏱️ Длительность", callback_data=f"service:edit_field:{service_id}:duration"),
-            InlineKeyboardButton(text="📄 Описание", callback_data=f"service:edit_field:{service_id}:description"),
+            InlineKeyboardButton(text="⏱️ Длительность", callback_data=ServiceEditField(service_id=service_id, field="duration").pack()),
+            InlineKeyboardButton(text="📄 Описание", callback_data=ServiceEditField(service_id=service_id, field="description").pack()),
         ],
         [
-            InlineKeyboardButton(text="🌠 Фото", callback_data=f"service:edit_field:{service_id}:photo"),
+            InlineKeyboardButton(text="🌠 Фото", callback_data=ServiceEditField(service_id=service_id, field="photo").pack()),
         ],
         [
-            InlineKeyboardButton(text="🗑️ Удалить", callback_data=f"service:delete:{service_id}"),
+            InlineKeyboardButton(text="🗑️ Удалить", callback_data=ServiceDelete(service_id=service_id).pack()),
         ],
         [
-            InlineKeyboardButton(text="◀ Назад", callback_data="service:list"),
+            InlineKeyboardButton(text="◀ Назад", callback_data=ServiceList().pack()),
         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def confirm_delete_service_keyboard(service_id: int) -> InlineKeyboardMarkup:
     """Confirmation keyboard for deleting service."""
+    from app.admin_bot.handlers import ServiceConfirmDelete, ServiceEdit
+
     buttons = [
         [
-            InlineKeyboardButton(text="✅ Подтвердить удаление", callback_data=f"service:confirm_delete:{service_id}"),
-            InlineKeyboardButton(text="❌ Отменить", callback_data=f"service:edit:{service_id}"),
+            InlineKeyboardButton(text="✅ Подтвердить удаление", callback_data=ServiceConfirmDelete(service_id=service_id).pack()),
+            InlineKeyboardButton(text="❌ Отменить", callback_data=ServiceEdit(service_id=service_id).pack()),
         ],
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -89,20 +102,22 @@ def confirm_delete_service_keyboard(service_id: int) -> InlineKeyboardMarkup:
 
 def blocking_type_keyboard() -> InlineKeyboardMarkup:
     """Keyboard for choosing blocking type."""
+    from app.admin_bot.handlers import BlockDay, BlockTime, BlockView, ScheduleOpenDay, AdminMenuCB
+
     buttons = [
         [
-            InlineKeyboardButton(text="📅 Заблокировать день", callback_data="block:day"),
-            InlineKeyboardButton(text="⏰ Заблокировать время", callback_data="block:time"),
+            InlineKeyboardButton(text="📅 Заблокировать день", callback_data=BlockDay().pack()),
+            InlineKeyboardButton(text="⏰ Заблокировать время", callback_data=BlockTime().pack()),
         ],
         [
-            InlineKeyboardButton(text="👁️ Посмотреть блокировки", callback_data="block:view"),
-            InlineKeyboardButton(text="📖 Открыть выходной", callback_data="schedule:open_day"),
+            InlineKeyboardButton(text="👁️ Посмотреть блокировки", callback_data=BlockView().pack()),
+            InlineKeyboardButton(text="📖 Открыть выходной", callback_data=ScheduleOpenDay().pack()),
         ],
         [
             InlineKeyboardButton(text="⚙️ Настроить график", callback_data="schedule:settings"),
         ],
         [
-            InlineKeyboardButton(text="◀ Назад", callback_data="admin:menu"),
+            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),
         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -130,27 +145,29 @@ def blocked_slots_keyboard(blocked_slots: list[dict], blocked_days: list[str] = 
                 callback_data=f"unblock:{slot['date']}:{slot['time']}"
             )
         ])
-    buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="blocking:menu")])
+    buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data=BlockingMenu().pack())])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def blocked_day_keyboard() -> InlineKeyboardMarkup:
     """Keyboard after blocking entire day."""
     buttons = [
-        [InlineKeyboardButton(text="◀ Назад", callback_data="blocking:menu")]
+        [InlineKeyboardButton(text="◀ Назад", callback_data=BlockingMenu().pack())]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def pricelist_keyboard() -> InlineKeyboardMarkup:
     """Keyboard for pricelist management."""
+    from app.admin_bot.handlers import PricelistUpload, ServiceList, AdminMenuCB
+
     buttons = [
         [
-            InlineKeyboardButton(text="🌠 Прайс-лист", callback_data="pricelist:upload"),
-            InlineKeyboardButton(text="📋 Услуги", callback_data="service:list"),
+            InlineKeyboardButton(text="🌠 Прайс-лист", callback_data=PricelistUpload().pack()),
+            InlineKeyboardButton(text="📋 Услуги", callback_data=ServiceList().pack()),
         ],
         [
-            InlineKeyboardButton(text="◀ Назад", callback_data="admin:menu"),
+            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),
         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -158,8 +175,10 @@ def pricelist_keyboard() -> InlineKeyboardMarkup:
 
 def service_edit_cancel_keyboard(service_id: int) -> InlineKeyboardMarkup:
     """Keyboard with cancel button for editing service fields."""
+    from app.admin_bot.handlers import ServiceEdit
+
     buttons = [
-        [InlineKeyboardButton(text="❌ Отмена", callback_data=f"service:edit:{service_id}")]
+        [InlineKeyboardButton(text="❌ Отмена", callback_data=ServiceEdit(service_id=service_id).pack())]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -168,11 +187,11 @@ def clients_root_keyboard() -> InlineKeyboardMarkup:
     """Top-level clients menu."""
     buttons = [
         [
-            InlineKeyboardButton(text="👥 Клиенты", callback_data="clients:list:1"),
-            InlineKeyboardButton(text="⛔ Банлист", callback_data="clients:bans:1"),
+            InlineKeyboardButton(text="👥 Клиенты", callback_data="clients_list:1"),
+            InlineKeyboardButton(text="⛔ Банлист", callback_data="clients_bans:1"),
         ],
         [
-            InlineKeyboardButton(text="◀ Назад", callback_data="admin:menu"),
+            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),
         ],
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -181,7 +200,7 @@ def clients_root_keyboard() -> InlineKeyboardMarkup:
 def client_list_keyboard(items: list[dict], page: int, has_prev: bool, has_next: bool, *, banned: bool = False) -> InlineKeyboardMarkup:
     """Paginated list of clients or banned users."""
     buttons = []
-    prefix = "clients:banview" if banned else "clients:view"
+    prefix = "clients_banview" if banned else "clients_view"
 
     for item in items:
         telegram_id = item["telegram_id"]
@@ -197,10 +216,10 @@ def client_list_keyboard(items: list[dict], page: int, has_prev: bool, has_next:
 
     nav_row = []
     if has_prev:
-        nav_row.append(InlineKeyboardButton(text="◀", callback_data=f"{'clients:bans' if banned else 'clients:list'}:{page - 1}"))
-    nav_row.append(InlineKeyboardButton(text="Назад", callback_data="clients:menu"))
+        nav_row.append(InlineKeyboardButton(text="◀", callback_data=f"{'clients_bans' if banned else 'clients_list'}:{page - 1}"))
+    nav_row.append(InlineKeyboardButton(text="Назад", callback_data="clients_menu"))
     if has_next:
-        nav_row.append(InlineKeyboardButton(text="▶", callback_data=f"{'clients:bans' if banned else 'clients:list'}:{page + 1}"))
+        nav_row.append(InlineKeyboardButton(text="▶", callback_data=f"{'clients_bans' if banned else 'clients_list'}:{page + 1}"))
     buttons.append(nav_row)
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -208,24 +227,24 @@ def client_list_keyboard(items: list[dict], page: int, has_prev: bool, has_next:
 
 def client_detail_keyboard(telegram_id: int, source: str, page: int, *, is_banned: bool) -> InlineKeyboardMarkup:
     """Actions for a client card."""
-    back_target = "clients:bans" if source == "bans" else "clients:list"
+    back_target = "clients_bans" if source == "bans" else "clients_list"
     buttons = [
         [
-            InlineKeyboardButton(text="👤 История", callback_data=f"clients:history:{telegram_id}:{source}:{page}"),
+            InlineKeyboardButton(text="👤 История", callback_data=f"clients_history:{telegram_id}:{source}:{page}"),
         ],
         [
             InlineKeyboardButton(
                 text="⛔ Заблокировать" if not is_banned else "⛔ Уже в бане",
-                callback_data=f"clients:ban:{telegram_id}:{source}:{page}",
+                callback_data=f"clients_ban:{telegram_id}:{source}:{page}",
             ),
             InlineKeyboardButton(
                 text="✅ Разблокировать" if is_banned else "✅ Не заблокирован",
-                callback_data=f"clients:unban:{telegram_id}:{source}:{page}",
+                callback_data=f"clients_unban:{telegram_id}:{source}:{page}",
             ),
         ],
         [
-            InlineKeyboardButton(text="💬 Написать", callback_data=f"clients:message:{telegram_id}:{source}:{page}"),
-            InlineKeyboardButton(text="📝 Записать", callback_data=f"clients:book:{telegram_id}:{source}:{page}"),
+            InlineKeyboardButton(text="💬 Написать", callback_data=f"clients_message:{telegram_id}:{source}:{page}"),
+            InlineKeyboardButton(text="📝 Записать", callback_data=f"clients_book:{telegram_id}:{source}:{page}"),
         ],
         [
             InlineKeyboardButton(text="◀ Назад", callback_data=f"{back_target}:{page}"),

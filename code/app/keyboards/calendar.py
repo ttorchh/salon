@@ -2,7 +2,21 @@ from datetime import datetime, timedelta
 from calendar import monthcalendar, monthrange
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.filters.callback_data import CallbackData
 from app.config import get_tz_sync
+
+
+class CalendarAction(CallbackData, prefix="calendar"):
+    year: int
+    month: int
+
+
+class CalendarDate(CallbackData, prefix="calendar_date"):
+    date: str
+
+
+class TimeSelect(CallbackData, prefix="time"):
+    time: str
 
 
 def calendar_keyboard(year: int, month: int, blocked_dates: set = None) -> InlineKeyboardMarkup:
@@ -50,7 +64,7 @@ def calendar_keyboard(year: int, month: int, blocked_dates: set = None) -> Inlin
                     # Available days
                     week_buttons.append(InlineKeyboardButton(
                         text=str(day),
-                        callback_data=f"calendar_date:{date_str}"
+                        callback_data=CalendarDate(date=date_str).pack()
                     ))
         buttons.append(week_buttons)
     
@@ -61,9 +75,9 @@ def calendar_keyboard(year: int, month: int, blocked_dates: set = None) -> Inlin
     next_year = year if month < 12 else year + 1
     
     nav_buttons = [
-        InlineKeyboardButton(text="◀", callback_data=f"calendar:{prev_year}-{prev_month:02d}"),
+        InlineKeyboardButton(text="◀", callback_data=CalendarAction(year=prev_year, month=prev_month).pack()),
         InlineKeyboardButton(text=f"{month_name} {year}", callback_data="noop"),
-        InlineKeyboardButton(text="▶", callback_data=f"calendar:{next_year}-{next_month:02d}"),
+        InlineKeyboardButton(text="▶", callback_data=CalendarAction(year=next_year, month=next_month).pack()),
     ]
     buttons.append(nav_buttons)
     
@@ -126,7 +140,7 @@ def time_selection_keyboard(available_times: list[str]) -> InlineKeyboardMarkup:
                 time_str = available_times[i + j]
                 row.append(InlineKeyboardButton(
                     text=time_str,
-                    callback_data=f"time:{time_str}"
+                    callback_data=TimeSelect(time=time_str).pack()
                 ))
         if row:
             buttons.append(row)

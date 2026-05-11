@@ -7,6 +7,8 @@ from pathlib import Path
 import logging
 from app.config import get_tz_sync
 
+from aiogram.filters.callback_data import CallbackData
+
 from app.keyboards.calendar import calendar_keyboard, time_selection_keyboard, get_calendar_with_blocked_dates
 from app.keyboards.booking import confirm_booking_keyboard, service_selection_keyboard
 from app.keyboards.menu import main_menu_keyboard
@@ -16,6 +18,43 @@ from app.services.catalog_service import CatalogService
 
 router = Router()
 logger = logging.getLogger(__name__)
+
+
+class BookingAction(CallbackData, prefix="booking"):
+    action: str
+
+
+class ServiceSelect(CallbackData, prefix="service"):
+    service_id: int
+
+
+class CalendarAction(CallbackData, prefix="calendar"):
+    year: int
+    month: int
+
+
+class CalendarDate(CallbackData, prefix="calendar_date"):
+    date: str
+
+
+class TimeSelect(CallbackData, prefix="time"):
+    time: str
+
+
+class NoteAction(CallbackData, prefix="note"):
+    action: str
+
+
+class CancelApt(CallbackData, prefix="cancel_apt"):
+    appointment_id: int
+
+
+class Reschedule(CallbackData, prefix="reschedule"):
+    appointment_id: int
+
+
+class MenuAction(CallbackData, prefix="menu"):
+    action: str
 
 
 def format_date_for_display(date_str: str) -> str:
@@ -33,18 +72,24 @@ class BookingStates(StatesGroup):
     note = State()
     confirming = State()  # Flag to prevent duplicate confirmation processing
 
-@router.callback_query(F.data == "booking:start")
-async def booking_start(callback_query: types.CallbackQuery) -> None:
+@router.callback_query(BookingAction.filter(F.action == "start"))
+async def booking_start(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
     services = await CatalogService.list_services()
+    if not services:
+        await callback_query.answer("Пока нет доступных услуг. Попробуйте позже.", show_alert=True)
+        return
+
+    await state.set_state(BookingStates.service)
     await callback_query.message.edit_text(
         "Выберите услугу для записи:",
         reply_markup=service_selection_keyboard(services),
     )
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("service:"))
+@router.callback_query(ServiceSelect.filter(), BookingStates.service)
 async def service_selected(callback_query: types.CallbackQuery, state: FSMContext) -> None:
-    service_id = int(callback_query.data.split(":", 1)[1])
+    service_id = callback_query.data.service_id
     service = await CatalogService.get_service(service_id)
     if not service:
         await callback_query.answer("Услуга не найдена", show_alert=True)
@@ -93,10 +138,10 @@ async def service_selected(callback_query: types.CallbackQuery, state: FSMContex
         )
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("calendar:"))
+@router.callback_query(CalendarAction.filter(), BookingStates.date | RescheduleStates.reschedule_date)
 async def calendar_month_change(callback_query: types.CallbackQuery) -> None:
-    year_month = callback_query.data.split(":", 1)[1]
-    year, month = map(int, year_month.split("-"))
+    year = callback_query.data.year
+    month = callback_query.data.month
     
     calendar_kb = await get_calendar_with_blocked_dates(year, month)
     await callback_query.message.edit_reply_markup(
@@ -104,12 +149,12 @@ async def calendar_month_change(callback_query: types.CallbackQuery) -> None:
     )
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("calendar_date:"), BookingStates.date)
+@router.callback_query(CalendarDate.filter(), BookingStates.date)
 async def calendar_date_selected(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     import logging
     logger = logging.getLogger(__name__)
     
-    appointment_date = callback_query.data.split(":", 1)[1]
+    appointment_date = callback_query.data.date
     data = await state.get_data()
     service_id = data.get("service_id")
     
@@ -152,9 +197,9 @@ async def calendar_date_selected(callback_query: types.CallbackQuery, state: FSM
     )
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("time:"), BookingStates.time)
+@router.callback_query(TimeSelect.filter(), BookingStates.time)
 async def time_selected(callback_query: types.CallbackQuery, state: FSMContext) -> None:
-    appointment_time = callback_query.data.split(":", 1)[1]
+    appointment_time = callback_query.data.time
     await state.update_data(appointment_time=appointment_time)
     await state.set_state(BookingStates.note)
     
@@ -167,7 +212,7 @@ async def time_selected(callback_query: types.CallbackQuery, state: FSMContext) 
     await callback_query.message.answer(
         "Напишите пожелания мастеру или отправьте «Нет», если без пожеланий.",
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="Без пожеланий", callback_data="note:none")]
+            [types.InlineKeyboardButton(text="Без пожеланий", callback_data=NoteAction(action="none").pack())]
         ]),
     )
     await callback_query.answer()
@@ -190,7 +235,7 @@ async def booking_note(message: types.Message, state: FSMContext) -> None:
     await state.update_data(note=note)
     await message.answer(summary, reply_markup=confirm_booking_keyboard())
 
-@router.callback_query(F.data.startswith("note:"))
+@router.callback_query(NoteAction.filter(), BookingStates.note)
 async def quick_note(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     await callback_query.answer()
     
@@ -216,7 +261,7 @@ async def quick_note(callback_query: types.CallbackQuery, state: FSMContext) -> 
     
     await callback_query.message.answer(summary, reply_markup=confirm_booking_keyboard())
 
-@router.callback_query(F.data == "booking:confirm")
+@router.callback_query(BookingAction.filter(F.action == "confirm"), BookingStates.note | BookingStates.confirming)
 async def confirm_booking(callback_query: types.CallbackQuery, state: FSMContext, bot: Bot) -> None:
     current_state = await state.get_state()
     if current_state == "BookingStates:confirming":
@@ -308,7 +353,7 @@ async def confirm_booking(callback_query: types.CallbackQuery, state: FSMContext
         await target.edit_text(
             "✅ Запись принята! Напомним за день и за час до визита.",
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")]
+                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]
             ]),
         )
     except Exception as e:
@@ -323,10 +368,10 @@ async def confirm_booking(callback_query: types.CallbackQuery, state: FSMContext
         await callback_query.message.answer(
             f"❌ Ошибка при подтверждении записи: {e}",
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")]
+                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]
             ]),
         )
-@router.callback_query(F.data == "booking:cancel")
+@router.callback_query(BookingAction.filter(F.action == "cancel"), BookingStates.service | BookingStates.date | BookingStates.time | BookingStates.note | BookingStates.confirming)
 async def cancel_booking_process(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     await callback_query.answer()
     
@@ -341,17 +386,14 @@ async def cancel_booking_process(callback_query: types.CallbackQuery, state: FSM
     await callback_query.message.answer(
         "❌ Бронирование отменено. Вернёмся в главное меню.",
         reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")]
+            [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]
         ]),
     )
 
 
-@router.callback_query(F.data.startswith("cancel_apt:"))
+@router.callback_query(CancelApt.filter())
 async def cancel_appointment(callback_query: types.CallbackQuery) -> None:
-    # Answer immediately to avoid timeout
-    await callback_query.answer()
-    
-    appointment_id = int(callback_query.data.split(":", 1)[1])
+    appointment_id = callback_query.data.appointment_id
     
     # Show loading state - delete old message and send new one
     try:
@@ -410,7 +452,7 @@ async def cancel_appointment(callback_query: types.CallbackQuery) -> None:
         await callback_query.message.answer(
             "❌ Запись отменена. Вы всегда можете записаться повторно.",
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")]
+                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]
             ]),
         )
     except Exception as e:
@@ -425,7 +467,7 @@ async def cancel_appointment(callback_query: types.CallbackQuery) -> None:
         await callback_query.message.answer(
             f"❌ Ошибка при отмене записи: {e}",
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")]
+                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]
             ]),
         )
 
@@ -435,9 +477,9 @@ class RescheduleStates(StatesGroup):
     reschedule_time = State()
 
 
-@router.callback_query(F.data.startswith("reschedule:"))
+@router.callback_query(Reschedule.filter())
 async def reschedule_appointment(callback_query: types.CallbackQuery, state: FSMContext) -> None:
-    appointment_id = int(callback_query.data.split(":", 1)[1])
+    appointment_id = callback_query.data.appointment_id
     await state.update_data(appointment_id=appointment_id)
     await state.set_state(RescheduleStates.reschedule_date)
     
@@ -449,12 +491,12 @@ async def reschedule_appointment(callback_query: types.CallbackQuery, state: FSM
     )
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("calendar_date:"), RescheduleStates.reschedule_date)
+@router.callback_query(CalendarDate.filter(), RescheduleStates.reschedule_date)
 async def reschedule_select_date(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     import logging
     logger = logging.getLogger(__name__)
     
-    new_date = callback_query.data.split(":", 1)[1]
+    new_date = callback_query.data.date
     data = await state.get_data()
     appointment_id = data.get("appointment_id")
     
@@ -517,12 +559,12 @@ async def reschedule_select_date(callback_query: types.CallbackQuery, state: FSM
     )
     await callback_query.answer()
 
-@router.callback_query(F.data.startswith("time:"), RescheduleStates.reschedule_time)
+@router.callback_query(TimeSelect.filter(), RescheduleStates.reschedule_time)
 async def reschedule_select_time(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     # Answer immediately to avoid timeout
     await callback_query.answer()
     
-    new_time = callback_query.data.split(":", 1)[1]
+    new_time = callback_query.data.time
     data = await state.get_data()
     appointment_id = data.get("appointment_id")
     reschedule_date = data.get("reschedule_date")
@@ -550,7 +592,7 @@ async def reschedule_select_time(callback_query: types.CallbackQuery, state: FSM
             await callback_query.message.edit_text(
                 "❌ Ошибка: запись не найдена",
                 reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                    [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")]
+                    [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]
                 ]),
             )
             return
@@ -586,7 +628,7 @@ async def reschedule_select_time(callback_query: types.CallbackQuery, state: FSM
         await callback_query.message.edit_text(
             f"✅ Запись перенесена на {reschedule_date} {new_time}",
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")]
+                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]
             ]),
         )
     except Exception as e:
@@ -596,6 +638,6 @@ async def reschedule_select_time(callback_query: types.CallbackQuery, state: FSM
         await callback_query.message.edit_text(
             f"❌ Ошибка при переносе записи: {e}",
             reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")]
+                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]
             ]),
         )
