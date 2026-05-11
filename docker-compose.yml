@@ -3,127 +3,127 @@ version: '3.8'
 services:
   client-1:
     build: ./code
-    container_name: salon-client-1
+    container_name: salon-sandbox-client-1
     command: python -u launcher.py --instance /instance --mode both
     restart: unless-stopped
     volumes:
       - ./instances/client-1:/instance
     networks:
-      - salon-network
+      - salon-sandbox-network
     profiles:
       - client-1
 
   client-2:
     build: ./code
-    container_name: salon-client-2
+    container_name: salon-sandbox-client-2
     command: python -u launcher.py --instance /instance --mode both
     restart: unless-stopped
     volumes:
       - ./instances/client-2:/instance
     networks:
-      - salon-network
+      - salon-sandbox-network
     profiles:
       - client-2
 
   client-3:
     build: ./code
-    container_name: salon-client-3
+    container_name: salon-sandbox-client-3
     command: python -u launcher.py --instance /instance --mode both
     restart: unless-stopped
     volumes:
       - ./instances/client-3:/instance
     networks:
-      - salon-network
+      - salon-sandbox-network
     profiles:
       - client-3
 
   client-4:
     build: ./code
-    container_name: salon-client-4
+    container_name: salon-sandbox-client-4
     command: python -u launcher.py --instance /instance --mode both
     restart: unless-stopped
     volumes:
       - ./instances/client-4:/instance
     networks:
-      - salon-network
+      - salon-sandbox-network
     profiles:
       - client-4
 
   client-5:
     build: ./code
-    container_name: salon-client-5
+    container_name: salon-sandbox-client-5
     command: python -u launcher.py --instance /instance --mode both
     restart: unless-stopped
     volumes:
       - ./instances/client-5:/instance
     networks:
-      - salon-network
+      - salon-sandbox-network
     profiles:
       - client-5
 
   client-6:
     build: ./code
-    container_name: salon-client-6
+    container_name: salon-sandbox-client-6
     command: python -u launcher.py --instance /instance --mode both
     restart: unless-stopped
     volumes:
       - ./instances/client-6:/instance
     networks:
-      - salon-network
+      - salon-sandbox-network
     profiles:
       - client-6
 
   client-7:
     build: ./code
-    container_name: salon-client-7
+    container_name: salon-sandbox-client-7
     command: python -u launcher.py --instance /instance --mode both
     restart: unless-stopped
     volumes:
       - ./instances/client-7:/instance
     networks:
-      - salon-network
+      - salon-sandbox-network
     profiles:
       - client-7
 
   client-8:
     build: ./code
-    container_name: salon-client-8
+    container_name: salon-sandbox-client-8
     command: python -u launcher.py --instance /instance --mode both
     restart: unless-stopped
     volumes:
       - ./instances/client-8:/instance
     networks:
-      - salon-network
+      - salon-sandbox-network
     profiles:
       - client-8
 
   client-9:
     build: ./code
-    container_name: salon-client-9
+    container_name: salon-sandbox-client-9
     command: python -u launcher.py --instance /instance --mode both
     restart: unless-stopped
     volumes:
       - ./instances/client-9:/instance
     networks:
-      - salon-network
+      - salon-sandbox-network
     profiles:
       - client-9
 
   client-10:
     build: ./code
-    container_name: salon-client-10
+    container_name: salon-sandbox-client-10
     command: python -u launcher.py --instance /instance --mode both
     restart: unless-stopped
     volumes:
       - ./instances/client-10:/instance
     networks:
-      - salon-network
+      - salon-sandbox-network
     profiles:
       - client-10
 
   nginx:
     image: nginx:alpine
-    container_name: salon-nginx
+    container_name: salon-sandbox-nginx
     restart: unless-stopped
     ports:
       - "443:443"
@@ -132,10 +132,10 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro
     networks:
-      - salon-network
+      - salon-sandbox-network
     profiles:
       - webhook
 
 networks:
-  salon-network:
+  salon-sandbox-network:
     driver: bridge

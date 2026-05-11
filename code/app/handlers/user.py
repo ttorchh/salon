@@ -278,7 +278,7 @@ async def show_contacts_callback(callback_query: types.CallbackQuery) -> None:
     """Handle show contacts from inline button."""
     from app.services.admin_service import AdminService
     
-    contacts_text = await AdminService.get_salon_contacts()
+    contacts_text = await AdminService.get_salon-sandbox_contacts()
     
     if contacts_text:
         text = f"КОНТАКТЫ САЛОНА\n\n{contacts_text}"
@@ -293,7 +293,7 @@ async def show_contacts(message: Message) -> None:
     """Handle show contacts from reply button (legacy support)."""
     from app.services.admin_service import AdminService
     
-    contacts_text = await AdminService.get_salon_contacts()
+    contacts_text = await AdminService.get_salon-sandbox_contacts()
     
     if contacts_text:
         text = f"КОНТАКТЫ САЛОНА\n\n{contacts_text}"

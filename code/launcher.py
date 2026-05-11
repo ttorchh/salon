@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger("launcher")
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Salon Bot Launcher")
+    parser = argparse.ArgumentParser(description="salon-sandbox Bot Launcher")
     parser.add_argument(
         "--instance", "-i",
         required=True,

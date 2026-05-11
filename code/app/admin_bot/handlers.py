@@ -88,7 +88,7 @@ class AdminFeedbackReplyStates(StatesGroup):
     reply_text = State()
 
 class ContactsEditStates(StatesGroup):
-    """States for editing salon contacts."""
+    """States for editing salon-sandbox contacts."""
     editing = State()
 
 class TimezoneStates(StatesGroup):
@@ -353,7 +353,7 @@ class SetupWizardStates(StatesGroup):
     step_schedule_interval = State()  # Select interval size: 15/30/45/60
     step_custom_interval   = State()  # Custom interval input
     step_notification_time = State()  # Input notification time HH:MM
-    step_contacts          = State()  # Input salon contacts
+    step_contacts          = State()  # Input salon-sandbox contacts
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -3123,12 +3123,12 @@ async def admin_time(message: types.Message) -> None:
 
 @router.message(Command("contacts"))
 async def admin_contacts(message: types.Message, state: FSMContext) -> None:
-    """Show and edit salon contacts."""
+    """Show and edit salon-sandbox contacts."""
     if not is_admin(message.from_user.id):
         await message.answer("У вас нет доступа")
         return
     
-    contacts_text = await AdminService.get_salon_contacts()
+    contacts_text = await AdminService.get_salon-sandbox_contacts()
     
     if contacts_text:
         text = f"📞 КОНТАКТЫ САЛОНА\n\n{contacts_text}"
@@ -3150,7 +3150,7 @@ async def edit_contacts_start(callback_query: types.CallbackQuery, state: FSMCon
         await callback_query.answer("У вас нет доступа", show_alert=True)
         return
     
-    contacts_text = await AdminService.get_salon_contacts()
+    contacts_text = await AdminService.get_salon-sandbox_contacts()
     current_value = contacts_text or "(пусто)"
     
     await state.set_state(ContactsEditStates.editing)
@@ -3162,7 +3162,7 @@ async def edit_contacts_start(callback_query: types.CallbackQuery, state: FSMCon
         "Пример:\n"
         "Телефон: +7 (999) 123-45-67\n"
         "Адрес: Никольская, 14\n"
-        "📲 Instagram: @salon_MSK\n"
+        "📲 Instagram: @salon-sandbox_MSK\n"
     )
     
     buttons = [[InlineKeyboardButton(text="❌ Отмена", callback_data="admin_contacts")]]
@@ -3183,7 +3183,7 @@ async def process_contacts_edit(message: types.Message, state: FSMContext) -> No
         await message.answer("❌ Контакты не могут быть пустыми")
         return
     
-    await AdminService.update_salon_contacts(contacts_text)
+    await AdminService.update_salon-sandbox_contacts(contacts_text)
     await state.clear()
     
     await message.answer("✅ Контакты успешно обновлены")
@@ -3211,7 +3211,7 @@ async def admin_contacts_callback(callback_query: types.CallbackQuery, state: FS
     
     await state.clear()
     
-    contacts_text = await AdminService.get_salon_contacts()
+    contacts_text = await AdminService.get_salon-sandbox_contacts()
     
     if contacts_text:
         text = f"📞 КОНТАКТЫ САЛОНА\n\n{contacts_text}"
@@ -4352,7 +4352,7 @@ async def setup_process_contacts(message: types.Message, state: FSMContext) -> N
         return
     
     # Save contacts
-    await AdminService.update_salon_contacts(contacts_text)
+    await AdminService.update_salon-sandbox_contacts(contacts_text)
     
     # Finish setup
     await state.clear()
