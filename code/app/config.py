@@ -3,9 +3,9 @@ from pathlib import Path
 from datetime import timezone, timedelta
 from dotenv import load_dotenv
 
-# salon-sandbox/code/app/config.py
-# .parent       → salon-sandbox/code/app
-# .parent.parent → salon-sandbox/code
+# salon_sandbox/code/app/config.py
+# .parent       → salon_sandbox/code/app
+# .parent.parent → salon_sandbox/code
 CORE_DIR = Path(__file__).resolve().parent.parent
 
 # ── Папка инстанса ────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ RESTART_DELAY = float(os.getenv("RESTART_DELAY", "1.0"))  # секунды пе�
 
 # ── Пути к данным (всё внутри инстанса) ──────────────────────────────────────
 DATA_DIR            = INSTANCE_DIR / "data"
-DB_PATH             = os.getenv("DB_PATH", str(DATA_DIR / "salon-sandbox.db"))
+DB_PATH             = os.getenv("DB_PATH", str(DATA_DIR / "salon_sandbox.db"))
 IMAGES_DIR          = DATA_DIR / "images"
 SERVICE_IMAGES_DIR  = IMAGES_DIR / "services"
 FEEDBACK_IMAGES_DIR = IMAGES_DIR / "feedback"

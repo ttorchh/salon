@@ -140,7 +140,7 @@ def time_selection_keyboard(available_times: list[str]) -> InlineKeyboardMarkup:
                 time_str = available_times[i + j]
                 row.append(InlineKeyboardButton(
                     text=time_str,
-                    callback_data=TimeSelect(time=time_str).pack()
+                    callback_data=TimeSelect(time=time_str.replace(':', '.')).pack()
                 ))
         if row:
             buttons.append(row)

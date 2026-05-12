@@ -1032,15 +1032,15 @@ class AdminService:
             for row in rows
         ]
     
-    # ==================== salon-sandbox CONTACTS ====================
+    # ==================== salon_sandbox CONTACTS ====================
     
     @staticmethod
-    async def get_salon-sandbox_contacts() -> str:
-        """Get salon-sandbox contact information as a single formatted text."""
+    async def get_salon_sandbox_contacts() -> str:
+        """Get salon_sandbox contact information as a single formatted text."""
         async with get_connection() as connection:
             async with connection.cursor() as cursor:
                 await cursor.execute(
-                    "SELECT value FROM salon-sandbox_info WHERE key = 'contacts'"
+                    "SELECT value FROM salon_sandbox_info WHERE key = 'contacts'"
                 )
                 row = await cursor.fetchone()
         
@@ -1049,12 +1049,12 @@ class AdminService:
         return None
     
     @staticmethod
-    async def update_salon-sandbox_contacts(contacts_text: str) -> bool:
-        """Update salon-sandbox contacts with full text."""
+    async def update_salon_sandbox_contacts(contacts_text: str) -> bool:
+        """Update salon_sandbox contacts with full text."""
         async with get_connection() as connection:
             async with connection.cursor() as cursor:
                 await cursor.execute(
-                    "INSERT OR REPLACE INTO salon-sandbox_info (key, value) VALUES (?, ?)",
+                    "INSERT OR REPLACE INTO salon_sandbox_info (key, value) VALUES (?, ?)",
                     ("contacts", contacts_text)
                 )
                 await connection.commit()

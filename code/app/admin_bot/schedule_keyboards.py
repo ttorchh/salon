@@ -109,7 +109,7 @@ def interval_selection_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="60 минут", callback_data=SetupInterval(interval=60).pack()),
         ],
         [
-            InlineKeyboardButton(text="Другое", callback_data=SetupInterval(interval=0).pack()),
+            InlineKeyboardButton(text="Другое", callback_data=SetupInterval(interval="custom").pack()),
         ],
         [
             InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),

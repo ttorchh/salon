@@ -88,7 +88,7 @@ class AdminFeedbackReplyStates(StatesGroup):
     reply_text = State()
 
 class ContactsEditStates(StatesGroup):
-    """States for editing salon-sandbox contacts."""
+    """States for editing salon_sandbox contacts."""
     editing = State()
 
 class TimezoneStates(StatesGroup):
@@ -130,6 +130,10 @@ class AppointmentDetail(CallbackData, prefix="apt_detail"):
 class AppointmentNav(CallbackData, prefix="apt_nav"):
     view_type: str  # today, week, upcoming
     direction: str  # prev, next
+
+class AppointmentBack(CallbackData, prefix="apt_back"):
+    view_type: str  # today, week, upcoming
+    page: int = 1
 
 class AdminCancel(CallbackData, prefix="admin_cancel"):
     appointment_id: int
@@ -225,13 +229,14 @@ class ClientsBook(CallbackData, prefix="clients_book"):
 
 # Calendar & Time (from manual booking)
 class CalendarAction(CallbackData, prefix="calendar"):
-    pass
+    year: int
+    month: int
 
 class CalendarDate(CallbackData, prefix="calendar_date"):
-    pass
+    date: str
 
 class TimeSelect(CallbackData, prefix="time"):
-    pass
+    time: str
 
 class ManualBookService(CallbackData, prefix="manualbook_service"):
     service_id: int
@@ -241,7 +246,7 @@ class SetupScheduleType(CallbackData, prefix="setup_schedule_type"):
     schedule_type: str
 
 class SetupInterval(CallbackData, prefix="setup_interval"):
-    interval: int
+    interval: str
 
 class ScheduleCyclePattern(CallbackData, prefix="cycle_pattern"):
     pattern: str  # 5/2, 2/2, 4/3, 3/3, custom
@@ -353,7 +358,7 @@ class SetupWizardStates(StatesGroup):
     step_schedule_interval = State()  # Select interval size: 15/30/45/60
     step_custom_interval   = State()  # Custom interval input
     step_notification_time = State()  # Input notification time HH:MM
-    step_contacts          = State()  # Input salon-sandbox contacts
+    step_contacts          = State()  # Input salon_sandbox contacts
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -408,7 +413,10 @@ async def render_appointments_page(message_obj, view_type: str, page: int = 1) -
     """Render paginated appointments list for the given view type."""
     now = datetime.now(get_tz_sync())
     
-    if view_type == "week":
+    if view_type == "today":
+        today = now.date().isoformat()
+        appointments = await AdminService.list_appointments_for_day(today)
+    elif view_type == "week":
         start = now.date().isoformat()
         appointments = await AdminService.list_appointments_for_week(start)
     elif view_type == "upcoming":
@@ -436,13 +444,13 @@ async def render_appointments_page(message_obj, view_type: str, page: int = 1) -
 
         await message_obj.edit_text(
             text,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text="◀ Назад", callback_data="admin_menu")]]
-            ),
+            reply_markup=appointments_view_keyboard(),
         )
         return
 
-    if view_type == "week":
+    if view_type == "today":
+        text = f"📅 Записи на сегодня (стр. {page}/{total_pages}):\n\n"
+    elif view_type == "week":
         text = f"📅 Записи на неделю (стр. {page}/{total_pages}):\n\n"
     else:
         text = f"📅 Предстоящие записи (стр. {page}/{total_pages}):\n\n"
@@ -470,7 +478,7 @@ async def render_appointments_page(message_obj, view_type: str, page: int = 1) -
             row = [
                 InlineKeyboardButton(
                     text=f"{emoji} {date_str} {item['time']}",
-                    callback_data=f"apt_detail:{item['id']}",
+                    callback_data=AppointmentDetail(appointment_id=item['id']).pack(),
                 )
             ]
 
@@ -478,7 +486,7 @@ async def render_appointments_page(message_obj, view_type: str, page: int = 1) -
                 row.append(
                     InlineKeyboardButton(
                         text="📅 Перенести",
-                        callback_data=f"admin_reschedule:{item['id']}",
+                        callback_data=AdminReschedule(appointment_id=item['id']).pack(),
                     )
                 )
 
@@ -486,13 +494,13 @@ async def render_appointments_page(message_obj, view_type: str, page: int = 1) -
 
     nav = []
     if page > 1:
-        nav.append(InlineKeyboardButton(text="◀", callback_data=f"apt_nav:{view_type}:prev"))
+        nav.append(InlineKeyboardButton(text="◀", callback_data=AppointmentNav(view_type=view_type, direction="prev").pack()))
     if page < total_pages:
-        nav.append(InlineKeyboardButton(text="▶", callback_data=f"apt_nav:{view_type}:next"))
+        nav.append(InlineKeyboardButton(text="▶", callback_data=AppointmentNav(view_type=view_type, direction="next").pack()))
     if nav:
         buttons.append(nav)
 
-    buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin_menu")])
+    buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenu().pack())])
 
     await message_obj.edit_text(
         text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -714,11 +722,15 @@ async def admin_appointments_menu(message: types.Message) -> None:
     )
 
 @router.callback_query(ViewAppointments.filter(F.view_type == "today"))
-async def admin_today_callback(callback_query: types.CallbackQuery) -> None:
+async def admin_today_callback(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Show appointments for today."""
     if not is_admin(callback_query.from_user.id):
         await callback_query.answer("У вас нет доступа", show_alert=True)
         return
+    
+    # Set FSM state to track that we're viewing appointments
+    await state.set_state(AdminAppointmentsViewStates.viewing_appointments)
+    await state.update_data(view_type="today", current_page=1)
     
     today = datetime.now(get_tz_sync()).date().isoformat()
     appointments = await AdminService.list_appointments_for_day(today)
@@ -726,6 +738,7 @@ async def admin_today_callback(callback_query: types.CallbackQuery) -> None:
     if not appointments:
         await callback_query.message.edit_text(
             f"📅 Записей на сегодня ({today}) не найдено.",
+            reply_markup=appointments_view_keyboard(),
         )
         await callback_query.answer()
         return
@@ -749,8 +762,8 @@ async def admin_today_callback(callback_query: types.CallbackQuery) -> None:
         apt_datetime = apt_datetime.replace(tzinfo=get_tz_sync())
         
         if now > apt_datetime:
-            buttons = [[InlineKeyboardButton(text="👻 Клиент не пришел", callback_data=f"no_show:{apt['id']}")]]
-            buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin_menu")])
+            buttons = [[InlineKeyboardButton(text="👻 Клиент не пришел", callback_data=NoShow(appointment_id=apt['id']).pack())]]
+            buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data=AppointmentBack(view_type="today", page=1).pack())])
             await callback_query.message.edit_text(
                 text,
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
@@ -758,7 +771,7 @@ async def admin_today_callback(callback_query: types.CallbackQuery) -> None:
         else:
             await callback_query.message.edit_text(
                 text,
-                reply_markup=appointment_admin_keyboard(apt['id']),
+                reply_markup=appointment_admin_keyboard(apt['id'], view_type="today", page=1),
             )
     else:
         text = f"📅 Записи на сегодня ({today}):\n\n"
@@ -781,25 +794,25 @@ async def admin_today_callback(callback_query: types.CallbackQuery) -> None:
                 buttons.append([
                     InlineKeyboardButton(
                         text=f"{emoji} {item['time']}",
-                        callback_data=f"apt_detail:{item['id']}"
+                        callback_data=AppointmentDetail(appointment_id=item['id']).pack()
                     ),
                     InlineKeyboardButton(
                         text="👻 Неявка",
-                        callback_data=f"no_show:{item['id']}"
+                        callback_data=NoShow(appointment_id=item['id']).pack()
                     )
                 ])
             else:
                 buttons.append([
                     InlineKeyboardButton(
                         text=f"{emoji} {item['time']}",
-                        callback_data=f"apt_detail:{item['id']}"
+                        callback_data=AppointmentDetail(appointment_id=item['id']).pack()
                     ),
                     InlineKeyboardButton(
                         text="📅 Перенести",
-                        callback_data=f"admin_reschedule:{item['id']}"
+                        callback_data=AdminReschedule(appointment_id=item['id']).pack()
                     )
                 ])
-        buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data="admin_menu")])
+        buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenu().pack())])
         await callback_query.message.edit_text(
             text,
             reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
@@ -838,7 +851,7 @@ async def admin_upcoming_callback(callback_query: types.CallbackQuery, state: FS
     await callback_query.answer()
 
 @router.callback_query(AppointmentDetail.filter())
-async def show_appointment_detail(callback_query: types.CallbackQuery) -> None:
+async def show_appointment_detail(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Show appointment details with management buttons."""
     if not is_admin(callback_query.from_user.id):
         await callback_query.answer("У вас нет доступа", show_alert=True)
@@ -862,9 +875,14 @@ async def show_appointment_detail(callback_query: types.CallbackQuery) -> None:
         f"💬 Пожелания: {details['note'] or 'нет'}"
     )
     
+    # Get current view type and page from state to pass to keyboard
+    data = await state.get_data()
+    view_type = data.get("view_type", "today")
+    current_page = data.get("current_page", 1)
+    
     await callback_query.message.edit_text(
         text,
-        reply_markup=appointment_admin_keyboard(appointment_id),
+        reply_markup=appointment_admin_keyboard(appointment_id, view_type=view_type, page=current_page),
     )
     await callback_query.answer()
 
@@ -987,6 +1005,9 @@ async def block_entire_day(callback_query: types.CallbackQuery, state: FSMContex
     await state.update_data(block_type="day")
     today = datetime.now(get_tz_sync()).date()
     calendar_kb = await get_calendar_with_blocked_dates(today.year, today.month)
+    calendar_kb.inline_keyboard.append([
+        InlineKeyboardButton(text="◀ Назад", callback_data=BlockingMenu().pack())
+    ])
     await callback_query.message.edit_text(
         "📅 Выберите дату для блокировки всего дня:",
         reply_markup=calendar_kb,
@@ -1005,6 +1026,9 @@ async def block_time_slot(callback_query: types.CallbackQuery, state: FSMContext
     await state.update_data(block_type="time")
     today = datetime.now(get_tz_sync()).date()
     calendar_kb = await get_calendar_with_blocked_dates(today.year, today.month)
+    calendar_kb.inline_keyboard.append([
+        InlineKeyboardButton(text="◀ Назад", callback_data=BlockingMenu().pack())
+    ])
     await callback_query.message.edit_text(
         "📅 Выберите дату для блокировки времени:",
         reply_markup=calendar_kb,
@@ -1098,6 +1122,9 @@ async def admin_calendar_month_change(callback_query: types.CallbackQuery, state
     
     # Get calendar with blocked dates for current schedule
     calendar_kb = await get_calendar_with_blocked_dates(year, month)
+    calendar_kb.inline_keyboard.append([
+        InlineKeyboardButton(text="◀ Назад", callback_data=BlockingMenu().pack())
+    ])
     
     data = await state.get_data()
     block_type = data.get("block_type", "time")
@@ -1144,7 +1171,7 @@ async def admin_select_block_date(callback_query: types.CallbackQuery, state: FS
 
 @router.callback_query(TimeSelect.filter(), AdminBlockingStates.block_time)
 async def admin_select_block_time(callback_query: types.CallbackQuery, state: FSMContext) -> None:
-    block_time = callback_query.data.split(":", 1)[1]
+    block_time = callback_query.data.split(":", 1)[1].replace('.', ':')
     data = await state.get_data()
     
     await AdminService.block_time_slot(data["block_date"], block_time)
@@ -1409,7 +1436,7 @@ async def admin_select_reschedule_date(callback_query: types.CallbackQuery, stat
 @router.callback_query(TimeSelect.filter(), AdminRescheduleStates.reschedule_time)
 async def admin_confirm_reschedule(callback_query: types.CallbackQuery, state: FSMContext, bot: Bot) -> None:
     """Confirm rescheduling."""
-    new_time = callback_query.data.split(":", 1)[1]
+    new_time = callback_query.data.split(":", 1)[1].replace('.', ':')
     data = await state.get_data()
     appointment_id = data.get("appointment_id")
     new_date = data.get("reschedule_date")
@@ -2308,6 +2335,26 @@ async def handle_appointment_navigation(callback_query: types.CallbackQuery, sta
     await callback_query.answer()
 
 
+@router.callback_query(AppointmentBack.filter(), AdminAppointmentsViewStates.viewing_appointments)
+async def handle_appointment_back(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+    """Go back to appointments list from details."""
+    if not is_admin(callback_query.from_user.id):
+        await callback_query.answer("У вас нет доступа", show_alert=True)
+        return
+
+    data_str = callback_query.data.split(":", 1)[1]
+    parts = data_str.split(":")
+    view_type = parts[0] if parts else "today"
+    page = int(parts[1]) if len(parts) > 1 else 1
+    
+    # Update state to the previous view
+    await state.update_data(view_type=view_type, current_page=page)
+    
+    # Re-render the list
+    await render_appointments_page(callback_query.message, view_type, page)
+    await callback_query.answer()
+
+
 @router.callback_query(ClientsBook.filter())
 async def client_manual_booking_start(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Start manual booking for a client with FSM context."""
@@ -2397,7 +2444,7 @@ async def manual_booking_date_selected(callback_query: types.CallbackQuery, stat
 @router.callback_query(TimeSelect.filter(), AdminManualBookingStates.select_time)
 async def manual_booking_time_selected(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Select time for manual booking."""
-    appointment_time = callback_query.data.split(":", 1)[1]
+    appointment_time = callback_query.data.split(":", 1)[1].replace('.', ':')
     await state.update_data(manual_time=appointment_time)
     await state.set_state(AdminManualBookingStates.note)
     await callback_query.message.answer(
@@ -2936,17 +2983,23 @@ async def unblock_time_slot(callback_query: types.CallbackQuery) -> None:
     
     await callback_query.answer(msg)
 
-@router.callback_query(AdminMenuCB.filter())
+@router.callback_query(AdminMenu.filter())
 async def back_to_admin_menu(callback_query: types.CallbackQuery) -> None:
     """Return to admin main menu from appointments."""
     if not is_admin(callback_query.from_user.id):
         await callback_query.answer("У вас нет доступа", show_alert=True)
         return
-    await callback_query.message.delete()
-    await callback_query.message.answer(
-        "👨‍💼 Меню администратора",
-        reply_markup=admin_menu_keyboard(),
-    )
+    try:
+        await callback_query.message.edit_text(
+            "👨‍💼 Меню администратора",
+            reply_markup=admin_menu_keyboard(),
+        )
+    except Exception:
+        await callback_query.message.delete()
+        await callback_query.message.answer(
+            "👨‍💼 Меню администратора",
+            reply_markup=admin_menu_keyboard(),
+        )
     await callback_query.answer()
 
 @router.callback_query(AdminScheduleMenu.filter())
@@ -3123,12 +3176,12 @@ async def admin_time(message: types.Message) -> None:
 
 @router.message(Command("contacts"))
 async def admin_contacts(message: types.Message, state: FSMContext) -> None:
-    """Show and edit salon-sandbox contacts."""
+    """Show and edit salon_sandbox contacts."""
     if not is_admin(message.from_user.id):
         await message.answer("У вас нет доступа")
         return
     
-    contacts_text = await AdminService.get_salon-sandbox_contacts()
+    contacts_text = await AdminService.get_salon_sandbox_contacts()
     
     if contacts_text:
         text = f"📞 КОНТАКТЫ САЛОНА\n\n{contacts_text}"
@@ -3150,7 +3203,7 @@ async def edit_contacts_start(callback_query: types.CallbackQuery, state: FSMCon
         await callback_query.answer("У вас нет доступа", show_alert=True)
         return
     
-    contacts_text = await AdminService.get_salon-sandbox_contacts()
+    contacts_text = await AdminService.get_salon_sandbox_contacts()
     current_value = contacts_text or "(пусто)"
     
     await state.set_state(ContactsEditStates.editing)
@@ -3162,7 +3215,7 @@ async def edit_contacts_start(callback_query: types.CallbackQuery, state: FSMCon
         "Пример:\n"
         "Телефон: +7 (999) 123-45-67\n"
         "Адрес: Никольская, 14\n"
-        "📲 Instagram: @salon-sandbox_MSK\n"
+        "📲 Instagram: @salon_sandbox_MSK\n"
     )
     
     buttons = [[InlineKeyboardButton(text="❌ Отмена", callback_data="admin_contacts")]]
@@ -3183,7 +3236,7 @@ async def process_contacts_edit(message: types.Message, state: FSMContext) -> No
         await message.answer("❌ Контакты не могут быть пустыми")
         return
     
-    await AdminService.update_salon-sandbox_contacts(contacts_text)
+    await AdminService.update_salon_sandbox_contacts(contacts_text)
     await state.clear()
     
     await message.answer("✅ Контакты успешно обновлены")
@@ -3211,7 +3264,7 @@ async def admin_contacts_callback(callback_query: types.CallbackQuery, state: FS
     
     await state.clear()
     
-    contacts_text = await AdminService.get_salon-sandbox_contacts()
+    contacts_text = await AdminService.get_salon_sandbox_contacts()
     
     if contacts_text:
         text = f"📞 КОНТАКТЫ САЛОНА\n\n{contacts_text}"
@@ -3701,8 +3754,14 @@ async def setup_process_timezone(message: types.Message, state: FSMContext) -> N
 @router.callback_query(SetupScheduleType.filter())
 async def setup_choose_schedule_type(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Process schedule type selection."""
-    schedule_type = callback_query.data.split(":")[2]  # cycle, weekdays, or free
-    
+    callback_data = callback_query.data or ""
+    parts = callback_data.split(":", 1)
+    schedule_type = parts[1] if len(parts) > 1 else ""
+
+    if not schedule_type:
+        await callback_query.answer("❌ Некорректный выбор. Повторите попытку.", show_alert=True)
+        return
+
     await state.update_data(schedule_type=schedule_type)
     
     type_name = {
@@ -4141,9 +4200,10 @@ async def setup_skip_breaks(callback_query: types.CallbackQuery, state: FSMConte
 @router.callback_query(SetupInterval.filter())
 async def setup_choose_interval(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Process interval selection."""
-    data_part = callback_query.data.split(":")[2]
+    callback_data = callback_query.data or ""
+    data_part = callback_data.split(":", 1)[1] if ":" in callback_data else ""
     
-    if data_part == "custom":
+    if data_part in ("custom", "0"):
         await callback_query.message.edit_text(
             "⏱️ <b>Введите интервал в минутах</b>\n\n"
             "Укажите целое число больше 0 (например, 10, 20, 25):\n\n"
@@ -4157,9 +4217,9 @@ async def setup_choose_interval(callback_query: types.CallbackQuery, state: FSMC
         await callback_query.answer()
         return
     
-    interval = data_part
+    interval = int(data_part)
     
-    await AdminService.set_schedule_setting("interval_minutes", interval)
+    await AdminService.set_schedule_setting("interval_minutes", str(interval))
     
     await state.set_state(SetupWizardStates.step_notification_time)
     await state.update_data(setup_step="notification", interval_minutes=interval)
@@ -4352,7 +4412,7 @@ async def setup_process_contacts(message: types.Message, state: FSMContext) -> N
         return
     
     # Save contacts
-    await AdminService.update_salon-sandbox_contacts(contacts_text)
+    await AdminService.update_salon_sandbox_contacts(contacts_text)
     
     # Finish setup
     await state.clear()

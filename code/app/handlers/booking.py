@@ -72,6 +72,12 @@ class BookingStates(StatesGroup):
     note = State()
     confirming = State()  # Flag to prevent duplicate confirmation processing
 
+
+class RescheduleStates(StatesGroup):
+    reschedule_date = State()
+    reschedule_time = State()
+
+
 @router.callback_query(BookingAction.filter(F.action == "start"))
 async def booking_start(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     await state.clear()
@@ -88,8 +94,8 @@ async def booking_start(callback_query: types.CallbackQuery, state: FSMContext) 
     await callback_query.answer()
 
 @router.callback_query(ServiceSelect.filter(), BookingStates.service)
-async def service_selected(callback_query: types.CallbackQuery, state: FSMContext) -> None:
-    service_id = callback_query.data.service_id
+async def service_selected(callback_query: types.CallbackQuery, state: FSMContext, callback_data: ServiceSelect) -> None:
+    service_id = callback_data.service_id
     service = await CatalogService.get_service(service_id)
     if not service:
         await callback_query.answer("Услуга не найдена", show_alert=True)
@@ -138,10 +144,10 @@ async def service_selected(callback_query: types.CallbackQuery, state: FSMContex
         )
     await callback_query.answer()
 
-@router.callback_query(CalendarAction.filter(), BookingStates.date | RescheduleStates.reschedule_date)
-async def calendar_month_change(callback_query: types.CallbackQuery) -> None:
-    year = callback_query.data.year
-    month = callback_query.data.month
+@router.callback_query(CalendarAction.filter(), BookingStates.date, RescheduleStates.reschedule_date)
+async def calendar_month_change(callback_query: types.CallbackQuery, callback_data: CalendarAction) -> None:
+    year = callback_data.year
+    month = callback_data.month
     
     calendar_kb = await get_calendar_with_blocked_dates(year, month)
     await callback_query.message.edit_reply_markup(
@@ -150,11 +156,11 @@ async def calendar_month_change(callback_query: types.CallbackQuery) -> None:
     await callback_query.answer()
 
 @router.callback_query(CalendarDate.filter(), BookingStates.date)
-async def calendar_date_selected(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+async def calendar_date_selected(callback_query: types.CallbackQuery, state: FSMContext, callback_data: CalendarDate) -> None:
     import logging
     logger = logging.getLogger(__name__)
     
-    appointment_date = callback_query.data.date
+    appointment_date = callback_data.date
     data = await state.get_data()
     service_id = data.get("service_id")
     
@@ -198,8 +204,8 @@ async def calendar_date_selected(callback_query: types.CallbackQuery, state: FSM
     await callback_query.answer()
 
 @router.callback_query(TimeSelect.filter(), BookingStates.time)
-async def time_selected(callback_query: types.CallbackQuery, state: FSMContext) -> None:
-    appointment_time = callback_query.data.time
+async def time_selected(callback_query: types.CallbackQuery, state: FSMContext, callback_data: TimeSelect) -> None:
+    appointment_time = callback_data.time.replace('.', ':')
     await state.update_data(appointment_time=appointment_time)
     await state.set_state(BookingStates.note)
     
@@ -261,7 +267,7 @@ async def quick_note(callback_query: types.CallbackQuery, state: FSMContext) -> 
     
     await callback_query.message.answer(summary, reply_markup=confirm_booking_keyboard())
 
-@router.callback_query(BookingAction.filter(F.action == "confirm"), BookingStates.note | BookingStates.confirming)
+@router.callback_query(BookingAction.filter(F.action == "confirm"), BookingStates.note, BookingStates.confirming)
 async def confirm_booking(callback_query: types.CallbackQuery, state: FSMContext, bot: Bot) -> None:
     current_state = await state.get_state()
     if current_state == "BookingStates:confirming":
@@ -371,7 +377,7 @@ async def confirm_booking(callback_query: types.CallbackQuery, state: FSMContext
                 [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]
             ]),
         )
-@router.callback_query(BookingAction.filter(F.action == "cancel"), BookingStates.service | BookingStates.date | BookingStates.time | BookingStates.note | BookingStates.confirming)
+@router.callback_query(BookingAction.filter(F.action == "cancel"), BookingStates.service, BookingStates.date, BookingStates.time, BookingStates.note, BookingStates.confirming)
 async def cancel_booking_process(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     await callback_query.answer()
     
@@ -392,8 +398,8 @@ async def cancel_booking_process(callback_query: types.CallbackQuery, state: FSM
 
 
 @router.callback_query(CancelApt.filter())
-async def cancel_appointment(callback_query: types.CallbackQuery) -> None:
-    appointment_id = callback_query.data.appointment_id
+async def cancel_appointment(callback_query: types.CallbackQuery, callback_data: CancelApt) -> None:
+    appointment_id = callback_data.appointment_id
     
     # Show loading state - delete old message and send new one
     try:
@@ -472,14 +478,9 @@ async def cancel_appointment(callback_query: types.CallbackQuery) -> None:
         )
 
 
-class RescheduleStates(StatesGroup):
-    reschedule_date = State()
-    reschedule_time = State()
-
-
 @router.callback_query(Reschedule.filter())
-async def reschedule_appointment(callback_query: types.CallbackQuery, state: FSMContext) -> None:
-    appointment_id = callback_query.data.appointment_id
+async def reschedule_appointment(callback_query: types.CallbackQuery, state: FSMContext, callback_data: Reschedule) -> None:
+    appointment_id = callback_data.appointment_id
     await state.update_data(appointment_id=appointment_id)
     await state.set_state(RescheduleStates.reschedule_date)
     
@@ -492,11 +493,11 @@ async def reschedule_appointment(callback_query: types.CallbackQuery, state: FSM
     await callback_query.answer()
 
 @router.callback_query(CalendarDate.filter(), RescheduleStates.reschedule_date)
-async def reschedule_select_date(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+async def reschedule_select_date(callback_query: types.CallbackQuery, state: FSMContext, callback_data: CalendarDate) -> None:
     import logging
     logger = logging.getLogger(__name__)
     
-    new_date = callback_query.data.date
+    new_date = callback_data.date
     data = await state.get_data()
     appointment_id = data.get("appointment_id")
     
@@ -560,11 +561,11 @@ async def reschedule_select_date(callback_query: types.CallbackQuery, state: FSM
     await callback_query.answer()
 
 @router.callback_query(TimeSelect.filter(), RescheduleStates.reschedule_time)
-async def reschedule_select_time(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+async def reschedule_select_time(callback_query: types.CallbackQuery, state: FSMContext, callback_data: TimeSelect) -> None:
     # Answer immediately to avoid timeout
     await callback_query.answer()
     
-    new_time = callback_query.data.time
+    new_time = callback_data.time
     data = await state.get_data()
     appointment_id = data.get("appointment_id")
     reschedule_date = data.get("reschedule_date")

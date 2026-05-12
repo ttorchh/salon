@@ -1,9 +1,9 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
-def appointment_admin_keyboard(appointment_id: int) -> InlineKeyboardMarkup:
+def appointment_admin_keyboard(appointment_id: int, view_type: str = "today", page: int = 1) -> InlineKeyboardMarkup:
     """Keyboard for managing an appointment in admin panel."""
-    from app.admin_bot.handlers import AdminReschedule, AdminCancel, AdminMenuCB
+    from app.admin_bot.handlers import AdminReschedule, AdminCancel, AppointmentBack
 
     buttons = [
         [
@@ -11,14 +11,14 @@ def appointment_admin_keyboard(appointment_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="❌ Отменить", callback_data=AdminCancel(appointment_id=appointment_id).pack()),
         ],
         [
-            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),
+            InlineKeyboardButton(text="◀ Назад", callback_data=AppointmentBack(view_type=view_type, page=page).pack()),
         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def appointments_view_keyboard() -> InlineKeyboardMarkup:
     """Keyboard for choosing how to view appointments."""
-    from app.admin_bot.handlers import ViewAppointments, AdminMenuCB
+    from app.admin_bot.handlers import ViewAppointments, AdminMenu
 
     buttons = [
         [
@@ -26,13 +26,13 @@ def appointments_view_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="📆 На неделю", callback_data=ViewAppointments(view_type="week").pack()),
         ],
         [InlineKeyboardButton(text="⏳ Предстоящие", callback_data=ViewAppointments(view_type="upcoming").pack())],
-        [InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack())]
+        [InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenu().pack())]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def admin_services_keyboard() -> InlineKeyboardMarkup:
     """Keyboard for managing services."""
-    from app.admin_bot.handlers import ServiceCreate, ServiceList, AdminMenuCB
+    from app.admin_bot.handlers import ServiceCreate, ServiceList, AdminMenu
 
     buttons = [
         [
@@ -40,7 +40,7 @@ def admin_services_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="📋 Список услуг", callback_data=ServiceList().pack()),
         ],
         [
-            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),
+            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenu().pack()),
         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -102,7 +102,7 @@ def confirm_delete_service_keyboard(service_id: int) -> InlineKeyboardMarkup:
 
 def blocking_type_keyboard() -> InlineKeyboardMarkup:
     """Keyboard for choosing blocking type."""
-    from app.admin_bot.handlers import BlockDay, BlockTime, BlockView, ScheduleOpenDay, AdminMenuCB
+    from app.admin_bot.handlers import BlockDay, BlockTime, BlockView, ScheduleOpenDay, AdminMenu
 
     buttons = [
         [
@@ -117,7 +117,7 @@ def blocking_type_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="⚙️ Настроить график", callback_data="schedule:settings"),
         ],
         [
-            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),
+            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenu().pack()),
         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -125,6 +125,8 @@ def blocking_type_keyboard() -> InlineKeyboardMarkup:
 
 def blocked_slots_keyboard(blocked_slots: list[dict], blocked_days: list[str] = None) -> InlineKeyboardMarkup:
     """Keyboard showing blocked time slots and entire days."""
+    from app.admin_bot.handlers import BlockingMenu
+
     buttons = []
     
     # Add buttons for fully blocked days first
@@ -151,6 +153,8 @@ def blocked_slots_keyboard(blocked_slots: list[dict], blocked_days: list[str] = 
 
 def blocked_day_keyboard() -> InlineKeyboardMarkup:
     """Keyboard after blocking entire day."""
+    from app.admin_bot.handlers import BlockingMenu
+
     buttons = [
         [InlineKeyboardButton(text="◀ Назад", callback_data=BlockingMenu().pack())]
     ]
@@ -159,15 +163,15 @@ def blocked_day_keyboard() -> InlineKeyboardMarkup:
 
 def pricelist_keyboard() -> InlineKeyboardMarkup:
     """Keyboard for pricelist management."""
-    from app.admin_bot.handlers import PricelistUpload, ServiceList, AdminMenuCB
+    from app.admin_bot.handlers import PricelistUpload, ServiceList, AdminMenu
 
     buttons = [
         [
-            InlineKeyboardButton(text="🌠 Прайс-лист", callback_data=PricelistUpload().pack()),
+            InlineKeyboardButton(text="📤 Загрузить прайс", callback_data=PricelistUpload().pack()),
             InlineKeyboardButton(text="📋 Услуги", callback_data=ServiceList().pack()),
         ],
         [
-            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),
+            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenu().pack()),
         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -185,13 +189,15 @@ def service_edit_cancel_keyboard(service_id: int) -> InlineKeyboardMarkup:
 
 def clients_root_keyboard() -> InlineKeyboardMarkup:
     """Top-level clients menu."""
+    from app.admin_bot.handlers import AdminMenu
+    
     buttons = [
         [
             InlineKeyboardButton(text="👥 Клиенты", callback_data="clients_list:1"),
             InlineKeyboardButton(text="⛔ Банлист", callback_data="clients_bans:1"),
         ],
         [
-            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),
+            InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenu().pack()),
         ],
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)

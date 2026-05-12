@@ -12,6 +12,7 @@ from aiogram.filters.callback_data import CallbackData
 
 from app.config import ADMIN_IDS, get_tz_sync, DATA_DIR
 from app.keyboards.booking import booking_keyboard, service_selection_keyboard, BookingAction
+from app.handlers.booking import BookingStates
 from app.keyboards.menu import main_menu_keyboard
 from app.services.catalog_service import CatalogService
 from app.services.booking_service import BookingService
@@ -209,12 +210,15 @@ async def skip_phone(callback_query: types.CallbackQuery, state: FSMContext) -> 
     await callback_query.answer()
 
 @router.message(F.text.in_(["🌸 Записаться", "записаться", "Записаться", "прийти", "Прийти", "забронировать", "Забронировать"]))
-async def start_booking(message: Message) -> None:
+async def start_booking(message: Message, state: FSMContext | None = None) -> None:
     """Handle booking start from reply button (legacy support)."""
     services = await CatalogService.list_services()
     if not services:
-        await message.answer("Пока нет доступных услуг. Попробуйте позже.")
+        await message.answer('Пока нет доступных услуг. Попробуйте позже.')
         return
+    if state is not None:
+        await state.clear()
+        await state.set_state(BookingStates.service)
     await message.answer(
         "Выберите услугу для записи:",
         reply_markup=service_selection_keyboard(services),
@@ -278,7 +282,7 @@ async def show_contacts_callback(callback_query: types.CallbackQuery) -> None:
     """Handle show contacts from inline button."""
     from app.services.admin_service import AdminService
     
-    contacts_text = await AdminService.get_salon-sandbox_contacts()
+    contacts_text = await AdminService.get_salon_sandbox_contacts()
     
     if contacts_text:
         text = f"КОНТАКТЫ САЛОНА\n\n{contacts_text}"
@@ -293,7 +297,7 @@ async def show_contacts(message: Message) -> None:
     """Handle show contacts from reply button (legacy support)."""
     from app.services.admin_service import AdminService
     
-    contacts_text = await AdminService.get_salon-sandbox_contacts()
+    contacts_text = await AdminService.get_salon_sandbox_contacts()
     
     if contacts_text:
         text = f"КОНТАКТЫ САЛОНА\n\n{contacts_text}"
@@ -377,13 +381,15 @@ async def admin_command(message: Message) -> None:
     )
 
 @router.message(Command("book"))
-async def book_command(message: Message) -> None:
+async def book_command(message: Message, state: FSMContext | None = None) -> None:
     """Shortcut command for booking."""
     services = await CatalogService.list_services()
     if not services:
-        await message.answer("Пока нет доступных услуг. Попробуйте позже.")
+        await message.answer('Пока нет доступных услуг. Попробуйте позже.')
         return
-    
+    if state is not None:
+        await state.clear()
+        await state.set_state(BookingStates.service)
     await message.answer(
         "Выберите услугу:",
         reply_markup=service_selection_keyboard(services),
@@ -523,15 +529,15 @@ async def booking_list_callback(callback_query: types.CallbackQuery) -> None:
     await callback_query.answer()
 
 @router.callback_query(MyApts.filter())
-async def my_appointments_page_callback(callback_query: types.CallbackQuery) -> None:
-    page = callback_query.data.page
+async def my_appointments_page_callback(callback_query: types.CallbackQuery, callback_data: MyApts) -> None:
+    page = callback_data.page
     await render_my_appointments(callback_query.message, callback_query.from_user.id, page=page, edit=True)
     await callback_query.answer()
 
 @router.callback_query(Feedback.filter())
-async def leave_feedback(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+async def leave_feedback(callback_query: types.CallbackQuery, state: FSMContext, callback_data: Feedback) -> None:
     """Start feedback process with validation."""
-    appointment_id = callback_query.data.appointment_id
+    appointment_id = callback_data.appointment_id
     
     # Validate appointment exists and belongs to user
     async with get_connection() as connection:

@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS unavailable_slots (
     UNIQUE(slot_date, slot_time)
 );
 
-CREATE TABLE IF NOT EXISTS salon-sandbox_info (
+CREATE TABLE IF NOT EXISTS salon_sandbox_info (
     key TEXT PRIMARY KEY,
     value TEXT
 );
@@ -252,11 +252,11 @@ async def backup_db() -> Path | None:
     from .config import BACKUPS_DIR
     try:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        backup_path = BACKUPS_DIR / f"salon-sandbox_{timestamp}.db"
+        backup_path = BACKUPS_DIR / f"salon_sandbox_{timestamp}.db"
         shutil.copy2(DB_PATH, backup_path)
 
         # Удаляем старые бекапы, оставляем последние 7
-        backups = sorted(BACKUPS_DIR.glob("salon-sandbox_*.db"))
+        backups = sorted(BACKUPS_DIR.glob("salon_sandbox_*.db"))
         for old in backups[:-7]:
             old.unlink()
 
