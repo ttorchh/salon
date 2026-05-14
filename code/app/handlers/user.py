@@ -74,9 +74,12 @@ class StartDialogStates(StatesGroup):
 
 
 def main_menu_keyboard_inline() -> InlineKeyboardMarkup:
-    """Inline version of main menu for use in callbacks (same as main_menu_keyboard now)."""
-    from app.keyboards.menu import main_menu_keyboard as get_main_menu
-    return get_main_menu()
+    """Inline fallback for callback screens that need a "back to main menu" action."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]
+        ]
+    )
 
 
 def is_appointment_passed(appointment_date: str, appointment_time: str) -> bool:
@@ -206,8 +209,12 @@ async def skip_phone(callback_query: types.CallbackQuery, state: FSMContext) -> 
     await state.clear()
     
     text = f"❤️ Спасибо! Теперь выберите действие:"
-    await callback_query.message.edit_text(text, reply_markup=main_menu_keyboard_inline())
     await callback_query.answer()
+    try:
+        await callback_query.message.delete()
+    except Exception:
+        pass
+    await callback_query.message.answer(text, reply_markup=main_menu_keyboard())
 
 @router.message(F.text.in_(["🌸 Записаться", "записаться", "Записаться", "прийти", "Прийти", "забронировать", "Забронировать"]))
 async def start_booking(message: Message, state: FSMContext | None = None) -> None:
@@ -449,7 +456,7 @@ async def render_my_appointments(message_obj, user_id: int, page: int = 1, edit:
     if not appointments:
         text = "👤 У вас пока нет записей."
         if edit:
-            await message_obj.edit_text(text, reply_markup=main_menu_keyboard())
+            await message_obj.edit_text(text, reply_markup=main_menu_keyboard_inline())
         else:
             await message_obj.answer(text, reply_markup=main_menu_keyboard())
         return
@@ -571,7 +578,7 @@ async def leave_feedback(callback_query: types.CallbackQuery, state: FSMContext,
         return
     
     # Valid feedback request
-    await state.set_data({"appointment_id": appointment_id})
+    await state.update_data(appointment_id=appointment_id)
     await state.set_state(FeedbackStates.feedback_content)
     
     await callback_query.message.edit_text(
@@ -688,6 +695,7 @@ async def handle_feedback_content(message: Message, state: FSMContext) -> None:
     )
 
 @router.callback_query(MenuAction.filter(F.action == "main"))
-async def return_to_main(callback_query: types.CallbackQuery) -> None:
+async def return_to_main(callback_query: types.CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
     await callback_query.message.delete()
     await callback_query.answer()

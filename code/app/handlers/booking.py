@@ -1,44 +1,25 @@
 from aiogram import Router, types, F, Bot
+from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import FSInputFile
 from datetime import datetime
-from pathlib import Path
 import logging
 from app.config import get_tz_sync
 
 from aiogram.filters.callback_data import CallbackData
 
-from app.keyboards.calendar import calendar_keyboard, time_selection_keyboard, get_calendar_with_blocked_dates
-from app.keyboards.booking import confirm_booking_keyboard, service_selection_keyboard
-from app.keyboards.menu import main_menu_keyboard
+from app.keyboards.calendar import CalendarAction, CalendarDate, TimeSelect, time_selection_keyboard, get_calendar_with_blocked_dates
+from app.keyboards.booking import (
+    BookingAction, ServiceSelect, MenuAction,
+    confirm_booking_keyboard, service_selection_keyboard,
+)
 from app.services.booking_service import BookingService
 from app.services.notification_service import NotificationService
 from app.services.catalog_service import CatalogService
 
 router = Router()
 logger = logging.getLogger(__name__)
-
-
-class BookingAction(CallbackData, prefix="booking"):
-    action: str
-
-
-class ServiceSelect(CallbackData, prefix="service"):
-    service_id: int
-
-
-class CalendarAction(CallbackData, prefix="calendar"):
-    year: int
-    month: int
-
-
-class CalendarDate(CallbackData, prefix="calendar_date"):
-    date: str
-
-
-class TimeSelect(CallbackData, prefix="time"):
-    time: str
 
 
 class NoteAction(CallbackData, prefix="note"):
@@ -51,10 +32,6 @@ class CancelApt(CallbackData, prefix="cancel_apt"):
 
 class Reschedule(CallbackData, prefix="reschedule"):
     appointment_id: int
-
-
-class MenuAction(CallbackData, prefix="menu"):
-    action: str
 
 
 def format_date_for_display(date_str: str) -> str:
@@ -144,7 +121,7 @@ async def service_selected(callback_query: types.CallbackQuery, state: FSMContex
         )
     await callback_query.answer()
 
-@router.callback_query(CalendarAction.filter(), BookingStates.date, RescheduleStates.reschedule_date)
+@router.callback_query(CalendarAction.filter(), StateFilter(BookingStates.date, RescheduleStates.reschedule_date))
 async def calendar_month_change(callback_query: types.CallbackQuery, callback_data: CalendarAction) -> None:
     year = callback_data.year
     month = callback_data.month
@@ -267,7 +244,7 @@ async def quick_note(callback_query: types.CallbackQuery, state: FSMContext) -> 
     
     await callback_query.message.answer(summary, reply_markup=confirm_booking_keyboard())
 
-@router.callback_query(BookingAction.filter(F.action == "confirm"), BookingStates.note, BookingStates.confirming)
+@router.callback_query(BookingAction.filter(F.action == "confirm"), StateFilter(BookingStates.note, BookingStates.confirming))
 async def confirm_booking(callback_query: types.CallbackQuery, state: FSMContext, bot: Bot) -> None:
     current_state = await state.get_state()
     if current_state == "BookingStates:confirming":
@@ -377,7 +354,16 @@ async def confirm_booking(callback_query: types.CallbackQuery, state: FSMContext
                 [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data=MenuAction(action="main").pack())]
             ]),
         )
-@router.callback_query(BookingAction.filter(F.action == "cancel"), BookingStates.service, BookingStates.date, BookingStates.time, BookingStates.note, BookingStates.confirming)
+@router.callback_query(
+    BookingAction.filter(F.action == "cancel"),
+    StateFilter(
+        BookingStates.service,
+        BookingStates.date,
+        BookingStates.time,
+        BookingStates.note,
+        BookingStates.confirming,
+    ),
+)
 async def cancel_booking_process(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     await callback_query.answer()
     
@@ -565,7 +551,7 @@ async def reschedule_select_time(callback_query: types.CallbackQuery, state: FSM
     # Answer immediately to avoid timeout
     await callback_query.answer()
     
-    new_time = callback_data.time
+    new_time = callback_data.time.replace('.', ':')
     data = await state.get_data()
     appointment_id = data.get("appointment_id")
     reschedule_date = data.get("reschedule_date")

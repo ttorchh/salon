@@ -18,8 +18,8 @@ from app.admin_bot.schedule_keyboards import (
     interval_selection_keyboard,
 )
 from app.admin_bot.handlers import (
-    SetupScheduleType, ScheduleCyclePattern, SetupWeekday, SetupWeekdaysConfirm,
-    SetupInterval, AdminMenuCB
+    ScheduleSettingsType, ScheduleSettingsCyclePattern, ScheduleSettingsWeekday,
+    ScheduleSettingsWeekdaysConfirm, ScheduleSettingsInterval, AdminMenuCB
 )
 from app.admin_bot.menu_keyboard import ScheduleOpenDay
 
@@ -69,7 +69,7 @@ async def schedule_command(message: types.Message, state: FSMContext) -> None:
     await state.set_state(AdminScheduleStates.choose_mode)
 
 
-@schedule_router.callback_query(SetupScheduleType.filter(F.schedule_type == "settings"))
+@schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "settings"))
 async def schedule_settings(callback: types.CallbackQuery, state: FSMContext) -> None:
     if not is_admin(callback.from_user.id):
         await callback.answer("У вас нет доступа", show_alert=True)
@@ -87,7 +87,7 @@ async def schedule_settings(callback: types.CallbackQuery, state: FSMContext) ->
     await callback.answer()
 
 
-@schedule_router.callback_query(SetupScheduleType.filter(F.schedule_type == "cycle"))
+@schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "cycle"))
 async def schedule_cycle_mode(query: types.CallbackQuery, state: FSMContext) -> None:
     """Start cyclic schedule setup."""
     await query.message.edit_text(
@@ -100,8 +100,8 @@ async def schedule_cycle_mode(query: types.CallbackQuery, state: FSMContext) -> 
     await state.set_state(AdminScheduleStates.cycle_pattern)
 
 
-@schedule_router.callback_query(ScheduleCyclePattern.filter())
-async def set_cycle_pattern(query: types.CallbackQuery, callback_data: ScheduleCyclePattern, state: FSMContext) -> None:
+@schedule_router.callback_query(ScheduleSettingsCyclePattern.filter())
+async def set_cycle_pattern(query: types.CallbackQuery, callback_data: ScheduleSettingsCyclePattern, state: FSMContext) -> None:
     """Set cycle pattern."""
     pattern = callback_data.pattern
 
@@ -111,7 +111,7 @@ async def set_cycle_pattern(query: types.CallbackQuery, callback_data: ScheduleC
 
 Где X - количество рабочих дней, Y - количество выходных""",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="◀ Назад", callback_data=SetupScheduleType(schedule_type="cycle").pack())
+                InlineKeyboardButton(text="◀ Назад", callback_data=ScheduleSettingsType(schedule_type="cycle").pack())
             ]])
         )
         await state.update_data(cycle_pattern="custom_input")
@@ -129,7 +129,7 @@ async def set_cycle_pattern(query: types.CallbackQuery, callback_data: ScheduleC
 <i>Текущая дата: {today}</i>""",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="◀ Назад", callback_data=SetupScheduleType(schedule_type="cycle").pack())
+            InlineKeyboardButton(text="◀ Назад", callback_data=ScheduleSettingsType(schedule_type="cycle").pack())
         ]])
     )
     await state.set_state(AdminScheduleStates.cycle_start_date)
@@ -222,7 +222,7 @@ async def set_cycle_start_date(message: types.Message, state: FSMContext) -> Non
     await state.set_state(AdminScheduleStates.choose_mode)
 
 
-@schedule_router.callback_query(SetupScheduleType.filter(F.schedule_type == "weekdays"))
+@schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "weekdays"))
 async def schedule_weekdays_mode(query: types.CallbackQuery, state: FSMContext) -> None:
     """Start weekdays schedule setup."""
     await query.message.edit_text(
@@ -236,8 +236,8 @@ async def schedule_weekdays_mode(query: types.CallbackQuery, state: FSMContext) 
     await state.update_data(selected_days={0, 1, 2, 3, 4})
 
 
-@schedule_router.callback_query(SetupWeekday.filter())
-async def toggle_weekday(query: types.CallbackQuery, callback_data: SetupWeekday, state: FSMContext) -> None:
+@schedule_router.callback_query(ScheduleSettingsWeekday.filter())
+async def toggle_weekday(query: types.CallbackQuery, callback_data: ScheduleSettingsWeekday, state: FSMContext) -> None:
     """Toggle a weekday."""
     day_idx = callback_data.weekday
     data = await state.get_data()
@@ -255,7 +255,7 @@ async def toggle_weekday(query: types.CallbackQuery, callback_data: SetupWeekday
     )
 
 
-@schedule_router.callback_query(SetupWeekdaysConfirm.filter())
+@schedule_router.callback_query(ScheduleSettingsWeekdaysConfirm.filter())
 async def confirm_weekdays(query: types.CallbackQuery, state: FSMContext) -> None:
     """Confirm weekdays selection."""
     data = await state.get_data()
@@ -291,7 +291,7 @@ async def confirm_weekdays(query: types.CallbackQuery, state: FSMContext) -> Non
     await state.set_state(AdminScheduleStates.choose_mode)
 
 
-@schedule_router.callback_query(SetupScheduleType.filter(F.schedule_type == "free"))
+@schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "free"))
 async def schedule_free_mode(query: types.CallbackQuery, state: FSMContext) -> None:
     """Set free schedule mode."""
     success, msg = await AdminService.set_schedule_free()
@@ -314,7 +314,7 @@ async def schedule_free_mode(query: types.CallbackQuery, state: FSMContext) -> N
     await state.set_state(AdminScheduleStates.choose_mode)
 
 
-@schedule_router.callback_query(SetupScheduleType.filter(F.schedule_type == "interval"))
+@schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "interval"))
 async def schedule_interval(query: types.CallbackQuery, state: FSMContext) -> None:
     """Set time slot interval."""
     await query.message.edit_text(
@@ -325,8 +325,8 @@ async def schedule_interval(query: types.CallbackQuery, state: FSMContext) -> No
     await state.set_state(AdminScheduleStates.select_interval)
 
 
-@schedule_router.callback_query(SetupInterval.filter())
-async def set_interval(query: types.CallbackQuery, callback_data: SetupInterval, state: FSMContext) -> None:
+@schedule_router.callback_query(ScheduleSettingsInterval.filter())
+async def set_interval(query: types.CallbackQuery, callback_data: ScheduleSettingsInterval, state: FSMContext) -> None:
     """Set interval."""
     interval = callback_data.interval
 
@@ -338,7 +338,7 @@ async def set_interval(query: types.CallbackQuery, callback_data: SetupInterval,
 <i>Минимальный интервал: 5 минут</i>""",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="◀ Назад", callback_data=SetupScheduleType(schedule_type="interval").pack())
+                InlineKeyboardButton(text="◀ Назад", callback_data=ScheduleSettingsType(schedule_type="interval").pack())
             ]])
         )
         await state.set_state(AdminScheduleStates.custom_interval)
@@ -362,7 +362,7 @@ async def set_interval(query: types.CallbackQuery, callback_data: SetupInterval,
     await state.set_state(AdminScheduleStates.choose_mode)
 
 
-@schedule_router.callback_query(SetupScheduleType.filter(F.schedule_type == "break"))
+@schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "break"))
 async def schedule_break_setup(query: types.CallbackQuery, state: FSMContext) -> None:
     """Start break time setup."""
     await query.message.edit_text(
@@ -405,7 +405,7 @@ async def set_break_start(message: types.Message, state: FSMContext) -> None:
         "Введите время конца обеда (HH:MM):",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="◀ Назад", callback_data=SetupScheduleType(schedule_type="break").pack())
+            InlineKeyboardButton(text="◀ Назад", callback_data=ScheduleSettingsType(schedule_type="break").pack())
         ]])
     )
     await state.set_state(AdminScheduleStates.set_break_end)
@@ -443,7 +443,7 @@ async def set_break_end(message: types.Message, state: FSMContext) -> None:
     await state.set_state(AdminScheduleStates.choose_mode)
 
 
-@schedule_router.callback_query(SetupScheduleType.filter(F.schedule_type == "hours"))
+@schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "hours"))
 async def schedule_hours_setup(query: types.CallbackQuery, state: FSMContext) -> None:
     """Start working hours setup."""
     await query.message.edit_text(
@@ -476,7 +476,7 @@ async def set_start_time(message: types.Message, state: FSMContext) -> None:
         "Введите время конца работы (HH:MM):",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="◀ Назад", callback_data=SetupScheduleType(schedule_type="hours").pack())
+            InlineKeyboardButton(text="◀ Назад", callback_data=ScheduleSettingsType(schedule_type="hours").pack())
         ]])
     )
     await state.set_state(AdminScheduleStates.set_end_time)
@@ -526,7 +526,7 @@ async def schedule_back_to_main(query: types.CallbackQuery, state: FSMContext) -
     await state.set_state(AdminScheduleStates.choose_mode)
 
 
-@schedule_router.callback_query(SetupScheduleType.filter(F.schedule_type == "done"))
+@schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "done"))
 async def schedule_done(query: types.CallbackQuery, state: FSMContext) -> None:
     """Finish schedule setup and show instructions."""
     await state.clear()

@@ -2,8 +2,8 @@
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from app.admin_bot.handlers import (
-    SetupScheduleType, SetupInterval, ScheduleCyclePattern,
-    AdminMenuCB, SetupWeekday, SetupWeekdaysConfirm, SetupBackToInterval
+    ScheduleSettingsType, ScheduleSettingsInterval, ScheduleSettingsCyclePattern,
+    AdminMenuCB, ScheduleSettingsWeekday, ScheduleSettingsWeekdaysConfirm
 )
 
 
@@ -11,26 +11,26 @@ def schedule_mode_keyboard() -> InlineKeyboardMarkup:
     """Choose schedule mode: cycle, weekdays, or free."""
     buttons = [
         [
-            InlineKeyboardButton(text="🔄 Циклический (5/2 и т.д.)", callback_data=SetupScheduleType(schedule_type="cycle").pack()),
+            InlineKeyboardButton(text="🔄 Циклический (5/2 и т.д.)", callback_data=ScheduleSettingsType(schedule_type="cycle").pack()),
         ],
         [
-            InlineKeyboardButton(text="📅 По дням недели", callback_data=SetupScheduleType(schedule_type="weekdays").pack()),
+            InlineKeyboardButton(text="📅 По дням недели", callback_data=ScheduleSettingsType(schedule_type="weekdays").pack()),
         ],
         [
-            InlineKeyboardButton(text="🆓 Свободный график", callback_data=SetupScheduleType(schedule_type="free").pack()),
+            InlineKeyboardButton(text="🆓 Свободный график", callback_data=ScheduleSettingsType(schedule_type="free").pack()),
         ],
         [
-            InlineKeyboardButton(text="⏱️ Интервал между записями", callback_data=SetupScheduleType(schedule_type="interval").pack()),
+            InlineKeyboardButton(text="⏱️ Интервал между записями", callback_data=ScheduleSettingsType(schedule_type="interval").pack()),
         ],
         [
-            InlineKeyboardButton(text="🍽️ Время обеда", callback_data=SetupScheduleType(schedule_type="break").pack()),
+            InlineKeyboardButton(text="🍽️ Время обеда", callback_data=ScheduleSettingsType(schedule_type="break").pack()),
         ],
         [
-            InlineKeyboardButton(text="⏰ Время работы (начало/конец)", callback_data=SetupScheduleType(schedule_type="hours").pack()),
+            InlineKeyboardButton(text="⏰ Время работы (начало/конец)", callback_data=ScheduleSettingsType(schedule_type="hours").pack()),
         ],
         
         [
-            InlineKeyboardButton(text="✅ Готово", callback_data=SetupScheduleType(schedule_type="done").pack()),
+            InlineKeyboardButton(text="✅ Готово", callback_data=ScheduleSettingsType(schedule_type="done").pack()),
             InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),
         ]
     ]
@@ -41,15 +41,15 @@ def schedule_cycle_pattern_keyboard() -> InlineKeyboardMarkup:
     """Predefined cycle patterns: 5/2, 2/2, 4/3, etc."""
     buttons = [
         [
-            InlineKeyboardButton(text="5/2 (5 работ, 2 выходных)", callback_data=ScheduleCyclePattern(pattern="5/2").pack()),
-            InlineKeyboardButton(text="2/2 (2 работ, 2 выходных)", callback_data=ScheduleCyclePattern(pattern="2/2").pack()),
+            InlineKeyboardButton(text="5/2 (5 работ, 2 выходных)", callback_data=ScheduleSettingsCyclePattern(pattern="5/2").pack()),
+            InlineKeyboardButton(text="2/2 (2 работ, 2 выходных)", callback_data=ScheduleSettingsCyclePattern(pattern="2/2").pack()),
         ],
         [
-            InlineKeyboardButton(text="4/3 (4 работ, 3 выходных)", callback_data=ScheduleCyclePattern(pattern="4/3").pack()),
-            InlineKeyboardButton(text="3/3 (3 работ, 3 выходных)", callback_data=ScheduleCyclePattern(pattern="3/3").pack()),
+            InlineKeyboardButton(text="4/3 (4 работ, 3 выходных)", callback_data=ScheduleSettingsCyclePattern(pattern="4/3").pack()),
+            InlineKeyboardButton(text="3/3 (3 работ, 3 выходных)", callback_data=ScheduleSettingsCyclePattern(pattern="3/3").pack()),
         ],
         [
-            InlineKeyboardButton(text="✍️ Свой паттерн", callback_data=ScheduleCyclePattern(pattern="custom").pack()),
+            InlineKeyboardButton(text="✍️ Свой паттерн", callback_data=ScheduleSettingsCyclePattern(pattern="custom").pack()),
         ],
         [
             InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),
@@ -85,12 +85,12 @@ def weekday_keyboard(
                 is_selected = day_idx in selected_days
                 row.append(InlineKeyboardButton(
                     text=f"{'✅' if is_selected else '❌'} {days[day_idx]}",
-                    callback_data=SetupWeekday(weekday=day_idx).pack()
+                    callback_data=ScheduleSettingsWeekday(weekday=day_idx).pack()
                 ))
         buttons.append(row)
 
     buttons.append([
-        InlineKeyboardButton(text="✅ Подтвердить", callback_data=SetupWeekdaysConfirm().pack()),
+        InlineKeyboardButton(text="✅ Подтвердить", callback_data=ScheduleSettingsWeekdaysConfirm().pack()),
         InlineKeyboardButton(text="◀ Отмена", callback_data=AdminMenuCB().pack()),
     ])
 
@@ -101,15 +101,15 @@ def interval_selection_keyboard() -> InlineKeyboardMarkup:
     """Select time slot interval in minutes."""
     buttons = [
         [
-            InlineKeyboardButton(text="15 минут", callback_data=SetupInterval(interval=15).pack()),
-            InlineKeyboardButton(text="30 минут", callback_data=SetupInterval(interval=30).pack()),
+            InlineKeyboardButton(text="15 минут", callback_data=ScheduleSettingsInterval(interval=15).pack()),
+            InlineKeyboardButton(text="30 минут", callback_data=ScheduleSettingsInterval(interval=30).pack()),
         ],
         [
-            InlineKeyboardButton(text="45 минут", callback_data=SetupInterval(interval=45).pack()),
-            InlineKeyboardButton(text="60 минут", callback_data=SetupInterval(interval=60).pack()),
+            InlineKeyboardButton(text="45 минут", callback_data=ScheduleSettingsInterval(interval=45).pack()),
+            InlineKeyboardButton(text="60 минут", callback_data=ScheduleSettingsInterval(interval=60).pack()),
         ],
         [
-            InlineKeyboardButton(text="Другое", callback_data=SetupInterval(interval="custom").pack()),
+            InlineKeyboardButton(text="Другое", callback_data=ScheduleSettingsInterval(interval="custom").pack()),
         ],
         [
             InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack()),

@@ -102,7 +102,7 @@ def confirm_delete_service_keyboard(service_id: int) -> InlineKeyboardMarkup:
 
 def blocking_type_keyboard() -> InlineKeyboardMarkup:
     """Keyboard for choosing blocking type."""
-    from app.admin_bot.handlers import BlockDay, BlockTime, BlockView, ScheduleOpenDay, AdminMenu
+    from app.admin_bot.handlers import BlockDay, BlockTime, BlockView, ScheduleOpenDay, AdminMenu, ScheduleSettingsType
 
     buttons = [
         [
@@ -114,7 +114,7 @@ def blocking_type_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="📖 Открыть выходной", callback_data=ScheduleOpenDay().pack()),
         ],
         [
-            InlineKeyboardButton(text="⚙️ Настроить график", callback_data="schedule:settings"),
+            InlineKeyboardButton(text="⚙️ Настроить график", callback_data=ScheduleSettingsType(schedule_type="settings").pack()),
         ],
         [
             InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenu().pack()),
@@ -189,12 +189,12 @@ def service_edit_cancel_keyboard(service_id: int) -> InlineKeyboardMarkup:
 
 def clients_root_keyboard() -> InlineKeyboardMarkup:
     """Top-level clients menu."""
-    from app.admin_bot.handlers import AdminMenu
+    from app.admin_bot.handlers import AdminMenu, ClientsBans, ClientsList
     
     buttons = [
         [
-            InlineKeyboardButton(text="👥 Клиенты", callback_data="clients_list:1"),
-            InlineKeyboardButton(text="⛔ Банлист", callback_data="clients_bans:1"),
+            InlineKeyboardButton(text="👥 Клиенты", callback_data=ClientsList(page=1).pack()),
+            InlineKeyboardButton(text="⛔ Банлист", callback_data=ClientsBans(page=1).pack()),
         ],
         [
             InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenu().pack()),
@@ -205,27 +205,43 @@ def clients_root_keyboard() -> InlineKeyboardMarkup:
 
 def client_list_keyboard(items: list[dict], page: int, has_prev: bool, has_next: bool, *, banned: bool = False) -> InlineKeyboardMarkup:
     """Paginated list of clients or banned users."""
+    from app.admin_bot.handlers import ClientsBanView, ClientsBans, ClientsList, ClientsMenu, ClientsView
+
     buttons = []
-    prefix = "clients_banview" if banned else "clients_view"
 
     for item in items:
         telegram_id = item["telegram_id"]
         first_name = item.get("first_name") or ""
         last_name = item.get("last_name") or ""
         full_name = f"{first_name} {last_name}".strip() or "Без имени"
+        callback_data = (
+            ClientsBanView(telegram_id=telegram_id, page=page).pack()
+            if banned
+            else ClientsView(telegram_id=telegram_id, page=page).pack()
+        )
         buttons.append([
             InlineKeyboardButton(
                 text=f"{telegram_id} | {full_name}",
-                callback_data=f"{prefix}:{telegram_id}:{page}",
+                callback_data=callback_data,
             )
         ])
 
     nav_row = []
     if has_prev:
-        nav_row.append(InlineKeyboardButton(text="◀", callback_data=f"{'clients_bans' if banned else 'clients_list'}:{page - 1}"))
-    nav_row.append(InlineKeyboardButton(text="Назад", callback_data="clients_menu"))
+        nav_row.append(
+            InlineKeyboardButton(
+                text="◀",
+                callback_data=(ClientsBans(page=page - 1).pack() if banned else ClientsList(page=page - 1).pack()),
+            )
+        )
+    nav_row.append(InlineKeyboardButton(text="Назад", callback_data=ClientsMenu().pack()))
     if has_next:
-        nav_row.append(InlineKeyboardButton(text="▶", callback_data=f"{'clients_bans' if banned else 'clients_list'}:{page + 1}"))
+        nav_row.append(
+            InlineKeyboardButton(
+                text="▶",
+                callback_data=(ClientsBans(page=page + 1).pack() if banned else ClientsList(page=page + 1).pack()),
+            )
+        )
     buttons.append(nav_row)
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -233,27 +249,40 @@ def client_list_keyboard(items: list[dict], page: int, has_prev: bool, has_next:
 
 def client_detail_keyboard(telegram_id: int, source: str, page: int, *, is_banned: bool) -> InlineKeyboardMarkup:
     """Actions for a client card."""
-    back_target = "clients_bans" if source == "bans" else "clients_list"
+    from app.admin_bot.handlers import ClientsBan, ClientsBans, ClientsBook, ClientsHistory, ClientsList, ClientsMessage, ClientsUnban
+
     buttons = [
         [
-            InlineKeyboardButton(text="👤 История", callback_data=f"clients_history:{telegram_id}:{source}:{page}"),
+            InlineKeyboardButton(
+                text="👤 История",
+                callback_data=ClientsHistory(telegram_id=telegram_id, source=source, page=page).pack(),
+            ),
         ],
         [
             InlineKeyboardButton(
                 text="⛔ Заблокировать" if not is_banned else "⛔ Уже в бане",
-                callback_data=f"clients_ban:{telegram_id}:{source}:{page}",
+                callback_data=ClientsBan(telegram_id=telegram_id, source=source, page=page).pack(),
             ),
             InlineKeyboardButton(
                 text="✅ Разблокировать" if is_banned else "✅ Не заблокирован",
-                callback_data=f"clients_unban:{telegram_id}:{source}:{page}",
+                callback_data=ClientsUnban(telegram_id=telegram_id, source=source, page=page).pack(),
             ),
         ],
         [
-            InlineKeyboardButton(text="💬 Написать", callback_data=f"clients_message:{telegram_id}:{source}:{page}"),
-            InlineKeyboardButton(text="📝 Записать", callback_data=f"clients_book:{telegram_id}:{source}:{page}"),
+            InlineKeyboardButton(
+                text="💬 Написать",
+                callback_data=ClientsMessage(telegram_id=telegram_id, source=source, page=page).pack(),
+            ),
+            InlineKeyboardButton(
+                text="📝 Записать",
+                callback_data=ClientsBook(telegram_id=telegram_id, source=source, page=page).pack(),
+            ),
         ],
         [
-            InlineKeyboardButton(text="◀ Назад", callback_data=f"{back_target}:{page}"),
+            InlineKeyboardButton(
+                text="◀ Назад",
+                callback_data=(ClientsBans(page=page).pack() if source == "bans" else ClientsList(page=page).pack()),
+            ),
         ],
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
