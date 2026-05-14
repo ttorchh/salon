@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 def register_user_routers(dispatcher: Dispatcher) -> None:
     from app.user_bot import booking_router, user_router
 
-    dispatcher.include_router(user_router)
     dispatcher.include_router(booking_router)
+    dispatcher.include_router(user_router)
 
 
 def register_admin_routers(dispatcher: Dispatcher) -> None:

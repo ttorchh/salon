@@ -125,7 +125,7 @@ def blocking_type_keyboard() -> InlineKeyboardMarkup:
 
 def blocked_slots_keyboard(blocked_slots: list[dict], blocked_days: list[str] = None) -> InlineKeyboardMarkup:
     """Keyboard showing blocked time slots and entire days."""
-    from app.admin_bot.handlers import BlockingMenu
+    from app.admin_bot.handlers import BlockingMenu, UnblockDay, Unblock
 
     buttons = []
     
@@ -135,7 +135,7 @@ def blocked_slots_keyboard(blocked_slots: list[dict], blocked_days: list[str] = 
             buttons.append([
                 InlineKeyboardButton(
                     text=f"📅 {day} - День полностью заблокирован (удалить)",
-                    callback_data=f"unblock_day:{day}"
+                    callback_data=UnblockDay(date=day).pack(),
                 )
             ])
     
@@ -144,7 +144,7 @@ def blocked_slots_keyboard(blocked_slots: list[dict], blocked_days: list[str] = 
         buttons.append([
             InlineKeyboardButton(
                 text=f"{slot['time']} - {slot['reason']}",
-                callback_data=f"unblock:{slot['date']}:{slot['time']}"
+                callback_data=Unblock(date=slot["date"], time=slot["time"]).pack(),
             )
         ])
     buttons.append([InlineKeyboardButton(text="◀ Назад", callback_data=BlockingMenu().pack())])

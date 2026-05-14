@@ -18,6 +18,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout,
+)
+logging.getLogger("aiogram").setLevel(logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 async def start_polling(bot: Bot, dispatcher) -> None:
     """Start polling mode."""

@@ -1,5 +1,5 @@
 from aiogram import Router, types, F
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -17,6 +17,7 @@ from app.keyboards.menu import main_menu_keyboard
 from app.services.catalog_service import CatalogService
 from app.services.booking_service import BookingService
 from app.database import get_connection
+from app.keyboards.callbacks import MenuAction
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -49,10 +50,6 @@ class Feedback(CallbackData, prefix="feedback"):
 
 class CancelFeedback(CallbackData, prefix="cancel_feedback"):
     pass
-
-
-class MenuAction(CallbackData, prefix="menu"):
-    action: str
 
 
 class Reschedule(CallbackData, prefix="reschedule"):
@@ -123,6 +120,7 @@ async def start_command(message: Message, state: FSMContext) -> None:
         return
     
     # New user - start greeting dialog
+    await state.clear()
     await state.set_state(StartDialogStates.awaiting_name)
     text = (
         "Добро пожаловать! Я бот записи к мастеру.\n\n"
@@ -131,7 +129,7 @@ async def start_command(message: Message, state: FSMContext) -> None:
     await message.answer(text)
 
 
-@router.message(StartDialogStates.awaiting_name)
+@router.message(StateFilter(StartDialogStates.awaiting_name))
 async def process_user_name(message: Message, state: FSMContext) -> None:
     """Process user's name."""
     name = message.text.strip()
@@ -150,7 +148,7 @@ async def process_user_name(message: Message, state: FSMContext) -> None:
     await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
 
 
-@router.message(StartDialogStates.awaiting_phone)
+@router.message(StateFilter(StartDialogStates.awaiting_phone))
 async def process_user_phone(message: Message, state: FSMContext) -> None:
     """Process user's phone."""
     phone = message.text.strip()
@@ -193,7 +191,7 @@ async def process_user_phone(message: Message, state: FSMContext) -> None:
     await message.answer(text, reply_markup=main_menu_keyboard())
 
 
-@router.callback_query(PhoneAction.filter(F.action == "skip"), StartDialogStates.awaiting_phone)
+@router.callback_query(PhoneAction.filter(F.action == "skip"), StateFilter(StartDialogStates.awaiting_phone))
 async def skip_phone(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Skip phone input."""
     data = await state.get_data()
@@ -217,15 +215,13 @@ async def skip_phone(callback_query: types.CallbackQuery, state: FSMContext) -> 
     await callback_query.message.answer(text, reply_markup=main_menu_keyboard())
 
 @router.message(F.text.in_(["🌸 Записаться", "записаться", "Записаться", "прийти", "Прийти", "забронировать", "Забронировать"]))
-async def start_booking(message: Message, state: FSMContext | None = None) -> None:
-    """Handle booking start from reply button (legacy support)."""
+async def start_booking(message: Message, state: FSMContext) -> None:
     services = await CatalogService.list_services()
     if not services:
         await message.answer('Пока нет доступных услуг. Попробуйте позже.')
         return
-    if state is not None:
-        await state.clear()
-        await state.set_state(BookingStates.service)
+    await state.clear()
+    await state.set_state(BookingStates.service)
     await message.answer(
         "Выберите услугу для записи:",
         reply_markup=service_selection_keyboard(services),
@@ -578,6 +574,7 @@ async def leave_feedback(callback_query: types.CallbackQuery, state: FSMContext,
         return
     
     # Valid feedback request
+    await state.clear()
     await state.update_data(appointment_id=appointment_id)
     await state.set_state(FeedbackStates.feedback_content)
     
@@ -594,7 +591,7 @@ async def leave_feedback(callback_query: types.CallbackQuery, state: FSMContext,
     )
     await callback_query.answer()
 
-@router.callback_query(CancelFeedback.filter(), FeedbackStates.feedback_content)
+@router.callback_query(CancelFeedback.filter(), StateFilter(FeedbackStates.feedback_content))
 async def cancel_feedback(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     """Cancel feedback."""
     await state.clear()
@@ -606,11 +603,19 @@ async def cancel_feedback(callback_query: types.CallbackQuery, state: FSMContext
     )
     await callback_query.answer()
 
-@router.message(FeedbackStates.feedback_content)
+@router.message(StateFilter(FeedbackStates.feedback_content))
 async def handle_feedback_content(message: Message, state: FSMContext) -> None:
     """Handle feedback content (text, photo, or photo with caption)."""
     data = await state.get_data()
     appointment_id = data.get("appointment_id")
+    
+    if appointment_id is None:
+        await state.clear()
+        await message.answer(
+            "❌ Сессия отзыва сброшена. Выберите запись снова.",
+            reply_markup=main_menu_keyboard(),
+        )
+        return
     
     comment_text = ""
     photo_filename = None
@@ -697,5 +702,12 @@ async def handle_feedback_content(message: Message, state: FSMContext) -> None:
 @router.callback_query(MenuAction.filter(F.action == "main"))
 async def return_to_main(callback_query: types.CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await callback_query.message.delete()
     await callback_query.answer()
+    try:
+        await callback_query.message.delete()
+    except Exception:
+        pass
+    await callback_query.message.answer(
+        "Главное меню",
+        reply_markup=main_menu_keyboard(),
+    )

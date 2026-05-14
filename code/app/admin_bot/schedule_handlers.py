@@ -3,7 +3,7 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import datetime
 import logging
@@ -98,6 +98,7 @@ async def schedule_cycle_mode(query: types.CallbackQuery, state: FSMContext) -> 
         reply_markup=schedule_cycle_pattern_keyboard()
     )
     await state.set_state(AdminScheduleStates.cycle_pattern)
+    await query.answer()
 
 
 @schedule_router.callback_query(ScheduleSettingsCyclePattern.filter())
@@ -116,6 +117,7 @@ async def set_cycle_pattern(query: types.CallbackQuery, callback_data: ScheduleS
         )
         await state.update_data(cycle_pattern="custom_input")
         await state.set_state(AdminScheduleStates.cycle_pattern)
+        await query.answer()
         return
 
     await state.update_data(cycle_pattern=pattern)
@@ -133,14 +135,16 @@ async def set_cycle_pattern(query: types.CallbackQuery, callback_data: ScheduleS
         ]])
     )
     await state.set_state(AdminScheduleStates.cycle_start_date)
+    await query.answer()
 
 
-@schedule_router.message(AdminScheduleStates.cycle_pattern)
+@schedule_router.message(StateFilter(AdminScheduleStates.cycle_pattern))
 async def handle_custom_cycle_pattern(message: types.Message, state: FSMContext) -> None:
     """Handle custom cycle pattern input (X/Y format)."""
     pattern_str = message.text.strip()
 
     if '/' not in pattern_str:
+        await state.clear()
         await message.answer("❌ Неверный формат. Используйте X/Y (например 5/2)")
         return
 
@@ -153,6 +157,7 @@ async def handle_custom_cycle_pattern(message: types.Message, state: FSMContext)
         if work_days <= 0 or rest_days <= 0:
             raise ValueError("Оба числа должны быть больше нуля")
     except (ValueError, IndexError):
+        await state.clear()
         await message.answer("❌ Неверный формат. Введите две положительные цифры через слеш (например 5/2)")
         return
 
@@ -170,7 +175,7 @@ async def handle_custom_cycle_pattern(message: types.Message, state: FSMContext)
     await state.set_state(AdminScheduleStates.cycle_start_date)
 
 
-@schedule_router.message(AdminScheduleStates.cycle_start_date)
+@schedule_router.message(StateFilter(AdminScheduleStates.cycle_start_date))
 async def set_cycle_start_date(message: types.Message, state: FSMContext) -> None:
     """Set cycle start date or open a non-working day."""
     date_str = message.text.strip()
@@ -178,6 +183,7 @@ async def set_cycle_start_date(message: types.Message, state: FSMContext) -> Non
     try:
         datetime.strptime(date_str, "%d-%m-%Y")
     except ValueError:
+        await state.clear()
         await message.answer("❌ Неверный формат. Используйте DD-MM-YYYY (например 20-04-2026)")
         return
 
@@ -193,7 +199,7 @@ async def set_cycle_start_date(message: types.Message, state: FSMContext) -> Non
             parse_mode="HTML",
             reply_markup=schedule_mode_keyboard()
         )
-        await state.set_state(AdminScheduleStates.choose_mode)
+        await state.clear()
         return
 
     pattern = data.get("cycle_pattern")
@@ -219,7 +225,7 @@ async def set_cycle_start_date(message: types.Message, state: FSMContext) -> Non
             reply_markup=schedule_mode_keyboard()
         )
 
-    await state.set_state(AdminScheduleStates.choose_mode)
+    await state.clear()
 
 
 @schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "weekdays"))
@@ -234,6 +240,7 @@ async def schedule_weekdays_mode(query: types.CallbackQuery, state: FSMContext) 
     )
     await state.set_state(AdminScheduleStates.weekdays_select)
     await state.update_data(selected_days={0, 1, 2, 3, 4})
+    await query.answer()
 
 
 @schedule_router.callback_query(ScheduleSettingsWeekday.filter())
@@ -253,6 +260,7 @@ async def toggle_weekday(query: types.CallbackQuery, callback_data: ScheduleSett
     await query.message.edit_reply_markup(
         reply_markup=weekday_keyboard(selected)
     )
+    await query.answer()
 
 
 @schedule_router.callback_query(ScheduleSettingsWeekdaysConfirm.filter())
@@ -288,7 +296,8 @@ async def confirm_weekdays(query: types.CallbackQuery, state: FSMContext) -> Non
             reply_markup=schedule_mode_keyboard()
         )
 
-    await state.set_state(AdminScheduleStates.choose_mode)
+    await state.clear()
+    await query.answer()
 
 
 @schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "free"))
@@ -311,7 +320,8 @@ async def schedule_free_mode(query: types.CallbackQuery, state: FSMContext) -> N
             reply_markup=schedule_mode_keyboard()
         )
 
-    await state.set_state(AdminScheduleStates.choose_mode)
+    await state.clear()
+    await query.answer()
 
 
 @schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "interval"))
@@ -323,6 +333,7 @@ async def schedule_interval(query: types.CallbackQuery, state: FSMContext) -> No
         reply_markup=interval_selection_keyboard()
     )
     await state.set_state(AdminScheduleStates.select_interval)
+    await query.answer()
 
 
 @schedule_router.callback_query(ScheduleSettingsInterval.filter())
@@ -359,7 +370,8 @@ async def set_interval(query: types.CallbackQuery, callback_data: ScheduleSettin
             reply_markup=schedule_mode_keyboard()
         )
 
-    await state.set_state(AdminScheduleStates.choose_mode)
+    await state.clear()
+    await query.answer()
 
 
 @schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "break"))
@@ -376,9 +388,10 @@ async def schedule_break_setup(query: types.CallbackQuery, state: FSMContext) ->
         ]])
     )
     await state.set_state(AdminScheduleStates.set_break_start)
+    await query.answer()
 
 
-@schedule_router.message(AdminScheduleStates.set_break_start)
+@schedule_router.message(StateFilter(AdminScheduleStates.set_break_start))
 async def set_break_start(message: types.Message, state: FSMContext) -> None:
     """Set break start time."""
     if message.text == "/skip":
@@ -387,7 +400,7 @@ async def set_break_start(message: types.Message, state: FSMContext) -> None:
             "✅ Время обеда отключено",
             reply_markup=schedule_mode_keyboard()
         )
-        await state.set_state(AdminScheduleStates.choose_mode)
+        await state.clear()
         return
 
     time_str = message.text.strip()
@@ -395,6 +408,7 @@ async def set_break_start(message: types.Message, state: FSMContext) -> None:
     try:
         datetime.strptime(time_str, "%H:%M")
     except ValueError:
+        await state.clear()
         await message.answer("❌ Неверный формат. Используйте HH:MM (например 13:00)")
         return
 
@@ -411,7 +425,7 @@ async def set_break_start(message: types.Message, state: FSMContext) -> None:
     await state.set_state(AdminScheduleStates.set_break_end)
 
 
-@schedule_router.message(AdminScheduleStates.set_break_end)
+@schedule_router.message(StateFilter(AdminScheduleStates.set_break_end))
 async def set_break_end(message: types.Message, state: FSMContext) -> None:
     """Set break end time."""
     time_str = message.text.strip()
@@ -419,6 +433,7 @@ async def set_break_end(message: types.Message, state: FSMContext) -> None:
     try:
         datetime.strptime(time_str, "%H:%M")
     except ValueError:
+        await state.clear()
         await message.answer("❌ Неверный формат. Используйте HH:MM (например 14:00)")
         return
 
@@ -440,7 +455,7 @@ async def set_break_end(message: types.Message, state: FSMContext) -> None:
             reply_markup=schedule_mode_keyboard()
         )
 
-    await state.set_state(AdminScheduleStates.choose_mode)
+    await state.clear()
 
 
 @schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "hours"))
@@ -456,9 +471,10 @@ async def schedule_hours_setup(query: types.CallbackQuery, state: FSMContext) ->
         ]])
     )
     await state.set_state(AdminScheduleStates.set_start_time)
+    await query.answer()
 
 
-@schedule_router.message(AdminScheduleStates.set_start_time)
+@schedule_router.message(StateFilter(AdminScheduleStates.set_start_time))
 async def set_start_time(message: types.Message, state: FSMContext) -> None:
     """Set working hours start time."""
     time_str = message.text.strip()
@@ -466,6 +482,7 @@ async def set_start_time(message: types.Message, state: FSMContext) -> None:
     try:
         datetime.strptime(time_str, "%H:%M")
     except ValueError:
+        await state.clear()
         await message.answer("❌ Неверный формат. Используйте HH:MM (например 09:00)")
         return
 
@@ -482,7 +499,7 @@ async def set_start_time(message: types.Message, state: FSMContext) -> None:
     await state.set_state(AdminScheduleStates.set_end_time)
 
 
-@schedule_router.message(AdminScheduleStates.set_end_time)
+@schedule_router.message(StateFilter(AdminScheduleStates.set_end_time))
 async def set_end_time(message: types.Message, state: FSMContext) -> None:
     """Set working hours end time."""
     time_str = message.text.strip()
@@ -490,6 +507,7 @@ async def set_end_time(message: types.Message, state: FSMContext) -> None:
     try:
         datetime.strptime(time_str, "%H:%M")
     except ValueError:
+        await state.clear()
         await message.answer("❌ Неверный формат. Используйте HH:MM (например 21:00)")
         return
 
@@ -511,7 +529,7 @@ async def set_end_time(message: types.Message, state: FSMContext) -> None:
             reply_markup=schedule_mode_keyboard()
         )
 
-    await state.set_state(AdminScheduleStates.choose_mode)
+    await state.clear()
 
 
 @schedule_router.callback_query(AdminMenuCB.filter())
@@ -523,7 +541,8 @@ async def schedule_back_to_main(query: types.CallbackQuery, state: FSMContext) -
         parse_mode="HTML",
         reply_markup=schedule_mode_keyboard()
     )
-    await state.set_state(AdminScheduleStates.choose_mode)
+    await state.clear()
+    await query.answer()
 
 
 @schedule_router.callback_query(ScheduleSettingsType.filter(F.schedule_type == "done"))
@@ -575,8 +594,8 @@ async def open_nonworking_day(query: types.CallbackQuery, state: FSMContext) -> 
 
     await query.message.edit_text(
         """📖 <b>Открыть выходной день</b>\n\n"
-        "Введите дату в формате DD-MM-YYYY\n"
-        "Пример: 20-04-2026""",
+        Введите дату в формате DD-MM-YYYY\n
+        Пример: 20-04-2026""",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="◀ Назад", callback_data=AdminMenuCB().pack())
@@ -585,7 +604,7 @@ async def open_nonworking_day(query: types.CallbackQuery, state: FSMContext) -> 
     await query.answer()
 
 
-@schedule_router.message(AdminScheduleStates.custom_interval)
+@schedule_router.message(StateFilter(AdminScheduleStates.custom_interval))
 async def set_custom_interval(message: types.Message, state: FSMContext) -> None:
     """Process custom interval input."""
     try:
@@ -593,6 +612,7 @@ async def set_custom_interval(message: types.Message, state: FSMContext) -> None
         if interval <= 0:
             raise ValueError("Interval must be positive")
         if interval < 5:
+            await state.clear()
             await message.answer(
                 """❌ Минимальный интервал: <b>5 минут</b>\n\n"
                 "Введите число от 5 и выше:""",
@@ -600,6 +620,7 @@ async def set_custom_interval(message: types.Message, state: FSMContext) -> None
             )
             return
     except ValueError:
+        await state.clear()
         await message.answer(
             """❌ Неверный формат\n\n"
             "Введите целое число больше 0 (например, 10, 20, 25):""",
@@ -621,4 +642,4 @@ async def set_custom_interval(message: types.Message, state: FSMContext) -> None
             reply_markup=schedule_mode_keyboard()
         )
 
-    await state.set_state(AdminScheduleStates.choose_mode)
+    await state.clear()

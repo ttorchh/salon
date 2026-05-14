@@ -1,6 +1,6 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters.callback_data import CallbackData
-
+from app.keyboards.callbacks import MenuAction
 
 class BookingAction(CallbackData, prefix="booking"):
     action: str
@@ -9,9 +9,6 @@ class BookingAction(CallbackData, prefix="booking"):
 class ServiceSelect(CallbackData, prefix="service"):
     service_id: int
 
-
-class MenuAction(CallbackData, prefix="menu"):
-    action: str
 
 
 def booking_keyboard() -> InlineKeyboardMarkup:
